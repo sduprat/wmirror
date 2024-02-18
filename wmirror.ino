@@ -2,71 +2,144 @@
 #include <SunPosition.h>
 #include <Servo.h>
 #include <math.h>
+#include <Servo.h>
+#include <IRremote.h>
 
-#define LATITUDE 43.6 // Latitude de Lavaur en degrés décimaux
-#define LONGITUDE 1.8 // Longitude de Lavaur en degrés décimaux
+// Pins de réception infrarouge
+const int RECV_PIN = 7;
 
-float polaris_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
-float polaris_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
-
-//float norm_azimuth = 180.0;
-//float norm_alttude = 30.0;
-
+// Objets Servo
+Servo servoV;
 Servo servoH;
 
-void setup() {
-  Serial.begin(9600);
-  setTime(21, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
-  servoH.attach(7);
+// Positions initiales des servomoteurs
+#define POSITION_INITIALE_V 30
+#define POSITION_INITIALE_H 90
+
+// Variables de position des servomoteurs
+int positionV = POSITION_INITIALE_V;
+int positionH = POSITION_INITIALE_H;
+
+// Codes de télécommande
+#define CODE_HAUT 0x0058    // Code de la flèche haut
+#define CODE_BAS 0x0059     // Code de la flèche bas
+#define CODE_GAUCHE 0x005A  // Code de la flèche gauche
+#define CODE_DROITE 0x005B  // Code de la flèche droite
+#define CODE_HOME 0x0054    // Code de la touche home
+#define CODE_PLAY 0x002C    // Code de la touche play
+#define CODE_STOP 0x0031    // Code de la touche play
+
+#define DECODE_NEC          // Includes Apple and Onkyo
+
+IRrecv irrecv(RECV_PIN);
+decode_results results;
+
+// 1 si play
+int mode_play = 0;
+unsigned long current_millis =0;
+unsigned long last_millis =0;
+
+ // soit toutes les 4" pour un degre
+#define PAS_MILLIS (4*1000*60)
+
+void updateServoPositions() {
+  // Contraintes pour la positionV
+  positionH = constrain(positionH, -180, 180);
+
+  // Contraintes pour la positionH
+  positionV = constrain(positionV, 0, 90);
+
+  // Mettre à jour la position des servomoteurs
+  servoV.write(positionV);
+  servoH.write(positionH);
+
+  // Afficher la position des servomoteurs sur la sortie série
+  Serial.println(mode_play);
+  Serial.println(current_millis);
+  Serial.print("\Position V : ");
+  Serial.println(positionV);
+  Serial.print("Position H : ");
+  Serial.println(positionH);
 }
+void setup() {
+  // Initialisation des servomoteurs
+  servoV.attach(9);
+  servoH.attach(10);
 
-double angle_normal(double angle1, double angle2) {
+  updateServoPositions();
 
-  float result;
-//  double result = atan2(
-//    (sin(angle1 * M_PI / 180.0) + sin(angle2 * M_PI / 180.0))/2,
-//    (cos(angle1 * M_PI / 180.0) + cos(angle2 * M_PI / 180.0))/2
-//    ) * 180.0 / M_PI;
-//  if (result < 0.0) {
-//    result += 360.0;
-//  }
-  if ((angle1-angle2)>180)
-    result = ((angle1 + angle2)/2+180);
-    else {
-      if ((angle1-angle2)<-180)
-        result = ((angle1 + angle2)/2-180);
-      else
-        result = (angle1 + angle2)/2;}
-  return result;
+  // Initialisation de la réception infrarouge
+  irrecv.enableIRIn();
+
+  // initialize digital pin LED_BUILTIN as an output.
+  pinMode(LED_BUILTIN, OUTPUT);
+  //mode_play = 0;
+  
+  // Initialisation de la communication série
+  Serial.begin(9600);
 }
 
 void loop() {
-  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
-  float azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
-  float altitude = sun.altitude(); // Obtenir l'élévation du soleil
+  if (irrecv.decode(&results)) {
+    unsigned long code = results.value & 0xFF;
 
-  float norm_azimuth  = angle_normal(azimuth, polaris_azimuth);
-  float norm_altitude = angle_normal(altitude, polaris_altitude);
+    // Afficher le code reçu en hexadécimal sur la sortie série
+    Serial.print("Code reçu : 0x");
+    Serial.println(code, HEX);
+
+    // Vérification du code reçu
+    switch (code) {
+      case CODE_HAUT:
+        // Modifier la position verticale du servomoteur
+        positionV += 1;
+        break;
+      case CODE_BAS:
+        // Modifier la position verticale du servomoteur
+        positionV -= 1;
+        break;
+      case CODE_GAUCHE:
+        // Modifier la position horizontale du servomoteur
+        positionH += 1;
+        break;
+      case CODE_DROITE:
+        // Modifier la position horizontale du servomoteur
+        positionH -= 1;
+        break;
+      case CODE_HOME:
+        // Revenir à la position initiale des servomoteurs
+        positionV = POSITION_INITIALE_V;
+        positionH = POSITION_INITIALE_H;
+        break;
+      case CODE_PLAY:
+        // Faire quelque chose pour le code play
+        mode_play = 1;
+        digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+        last_millis = millis();
+        break;
+      case CODE_STOP:
+        // Faire quelque chose pour le code play
+        mode_play = 0;
+        digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+        break;
+    }
+
+
+    updateServoPositions();
+
+    irrecv.resume(); // Réactiver la réception infrarouge
+  }
+
+  if (mode_play) {
+    current_millis = millis();
+    if (current_millis - last_millis >= PAS_MILLIS) {
+      positionH++;
+      last_millis = current_millis;
+      updateServoPositions();
+
+    }
   
-  servoH.write( norm_azimuth);
+  delay(1000);                       // wait for a second
 
-  Serial.print("SAzimuth: ");
-  Serial.print(azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
-  Serial.print(" degrees");
-  Serial.print("\tSAltitude: ");
-  Serial.print(altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
-  Serial.println(" degrees");
-  Serial.print("PAzimuth: ");
-  Serial.print(polaris_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
-  Serial.print(" degrees");
-  Serial.print("\tPAltitude: ");
-  Serial.print(polaris_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
-  Serial.println(" degrees");
-  Serial.print("NAzimuth: ");
-  Serial.print(norm_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
-  Serial.print(" degrees");
-  Serial.print("\tNAltitude: ");
-  Serial.print(norm_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
-  Serial.println(" degrees");
-  delay(4000); // Attendre une seconde avant la prochaine itération de la boucle
+  }
+
 }

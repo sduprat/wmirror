@@ -1,22 +1,38 @@
 {
-    "version": 1,
-    "author": "Stéphane Duprat",
-    "editor": "wokwi",
-    "parts": [
-      { "type": "wokwi-arduino-uno", "id": "uno", "top": 0, "left": 0, "attrs": {} },
-      {
-        "type": "wokwi-servo",
-        "id": "servo1",
-        "top": -193,
-        "left": 49.8,
-        "rotate": 270,
-        "attrs": {}
-      }
-    ],
-    "connections": [
-      [ "uno:GND.1", "servo1:GND", "black", [ "v0" ] ],
-      [ "servo1:PWM", "uno:7", "green", [ "v0" ] ],
-      [ "uno:5V", "servo1:V+", "red", [ "v0" ] ]
-    ],
-    "dependencies": {}
-  }
+  "version": 1,
+  "author": "Stéphane Duprat",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "wokwi-servo",
+      "id": "servoV",
+      "top": -231.4,
+      "left": 424.2,
+      "rotate": 270,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-servo",
+      "id": "servoH",
+      "top": -231.4,
+      "left": 309,
+      "rotate": 270,
+      "attrs": {}
+    },
+    { "type": "wokwi-ir-remote", "id": "remote1", "top": -96, "left": -249.6, "attrs": {} },
+    { "type": "wokwi-ir-receiver", "id": "ir1", "top": -231.75, "left": 267.02, "attrs": {} }
+  ],
+  "connections": [
+    [ "uno:GND.1", "servoV:GND", "black", [ "v-76.2", "h86.1" ] ],
+    [ "servoV:PWM", "uno:9", "green", [ "v67.2", "h-31.6" ] ],
+    [ "uno:5V", "servoV:V+", "red", [ "v29.3", "h348.7" ] ],
+    [ "uno:GND.1", "servoH:GND", "black", [ "v0" ] ],
+    [ "servoH:V+", "uno:5V", "red", [ "v307.2", "h-233.5" ] ],
+    [ "servoH:PWM", "uno:10", "green", [ "v9.6", "h-201.5" ] ],
+    [ "ir1:GND", "uno:GND.1", "black", [ "v48", "h-172.5" ] ],
+    [ "ir1:VCC", "uno:5V", "red", [ "v364.8", "h-137.6" ] ],
+    [ "ir1:DAT", "uno:7", "violet", [ "v96", "h-118.2" ] ]
+  ],
+  "dependencies": {}
+}
