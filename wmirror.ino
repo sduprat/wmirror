@@ -59,6 +59,9 @@ float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à
 float target_azimuth = 0;
 float target_altitude = 55;
 
+float sun_azimuth;
+float sun_altitude;
+
 // Time Config
 
 // 1 si play
@@ -104,25 +107,12 @@ float angle_normal(float angle1, float angle2) {
   return result;
 }
 
-//compute new target from servos
-void ComputeGeoPos() {
-  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
-  float azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
-  float altitude = sun.altitude(); // Obtenir l'élévation du soleil
-
-  // deduce norm from servo pos
-  norm_azimuth  = positionH + 90.0;
-  norm_altitude = (float)positionV;
-
-  // 
-  target_azimuth = fmod(2.0 * norm_azimuth - azimuth,360);
-  target_altitude = fmod(2.0 * norm_altitude - altitude,360);
-
+void printGeo(){
   Serial.print("SAzimuth: ");
-  Serial.print(azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.print(sun_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
   Serial.print(" degrees");
   Serial.print("\tSAltitude: ");
-  Serial.print(altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
+  Serial.print(sun_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
   Serial.println(" degrees");
   Serial.print("TAzimuth: ");
   Serial.print(target_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
@@ -136,6 +126,39 @@ void ComputeGeoPos() {
   Serial.print("\tNAltitude: ");
   Serial.print(norm_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
   Serial.println(" degrees");
+}
+
+
+//compute new norm from sun
+void UpdateNorm() {
+  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
+  sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
+  sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
+
+  // deduce norm from servo pos
+  norm_azimuth  = angle_normal(sun_azimuth, target_azimuth);
+  norm_altitude = angle_normal(sun_altitude, target_altitude);
+
+  // update servo pos from norm
+  positionH = norm_azimuth - 90;
+  positionV = norm_altitude;
+
+  printGeo();
+}
+//compute new target from servos
+void ComputeGeoPos() {
+  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
+  sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
+  sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
+
+  // deduce norm from servo pos
+  norm_azimuth  = positionH + 90.0;
+  norm_altitude = (float)positionV;
+
+  // compute norm from sun and target
+  target_azimuth = fmod(2.0 * norm_azimuth - sun_azimuth,360);
+  target_altitude = fmod(2.0 * norm_altitude - sun_altitude,360);
+  printGeo();
 }
 
 void setup() {
@@ -219,6 +242,7 @@ void loop() {
       Serial.println(current_millis - last_millis);
       positionH++;
       last_millis = current_millis;
+      UpdateNorm();
       updateServoPositions();
 
     }
