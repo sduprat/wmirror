@@ -5,10 +5,8 @@
 #include <Servo.h>
 #include <IRremote.h>
 
-// Pins de réception infrarouge
-const int RECV_PIN = 7;
 
-// Objets Servo
+// Servo Config
 Servo servoV;
 Servo servoH;
 
@@ -19,6 +17,10 @@ Servo servoH;
 // Variables de position des servomoteurs
 int positionV = POSITION_INITIALE_V;
 int positionH = POSITION_INITIALE_H;
+
+// IR Config
+// Pins de réception infrarouge
+const int RECV_PIN = 7;
 
 // Codes de télécommande
 
@@ -45,6 +47,20 @@ int positionH = POSITION_INITIALE_H;
 IRrecv irrecv(RECV_PIN);
 decode_results results;
 
+
+
+// Geo config
+#define LATITUDE 43.6 // Latitude de Lavaur en degrés décimaux
+#define LONGITUDE 1.8 // Longitude de Lavaur en degrés décimaux
+
+float norm_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
+float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
+
+float target_azimuth = 0;
+float target_altitude = 55;
+
+// Time Config
+
 // 1 si play
 int mode_play = 1;
 unsigned long current_millis =0;
@@ -52,6 +68,8 @@ unsigned long last_millis =0;
 
  // soit toutes les 4" pour un degre
 #define PAS_MILLIS (4*60)
+
+
 
 void updateServoPositions() {
   // Contraintes pour la positionV
@@ -71,12 +89,67 @@ void updateServoPositions() {
   Serial.print("Position H : ");
   Serial.println(positionH);
 }
+
+float angle_normal(float angle1, float angle2) {
+
+  float result;
+
+  if ((angle1-angle2)>180)
+    result = ((angle1 + angle2)/2+180);
+    else {
+      if ((angle1-angle2)<-180)
+        result = ((angle1 + angle2)/2-180);
+      else
+        result = (angle1 + angle2)/2;}
+  return result;
+}
+
+//compute new target from servos
+void ComputeGeoPos() {
+  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
+  float azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
+  float altitude = sun.altitude(); // Obtenir l'élévation du soleil
+
+  // deduce norm from servo pos
+  norm_azimuth  = positionH + 90.0;
+  norm_altitude = (float)positionV;
+
+  // 
+  target_azimuth = fmod(2.0 * norm_azimuth - azimuth,360);
+  target_altitude = fmod(2.0 * norm_altitude - altitude,360);
+
+  Serial.print("SAzimuth: ");
+  Serial.print(azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.print(" degrees");
+  Serial.print("\tSAltitude: ");
+  Serial.print(altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
+  Serial.println(" degrees");
+  Serial.print("TAzimuth: ");
+  Serial.print(target_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.print(" degrees");
+  Serial.print("\tTAltitude: ");
+  Serial.print(target_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
+  Serial.println(" degrees");
+  Serial.print("NAzimuth: ");
+  Serial.print(norm_azimuth, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.print(" degrees");
+  Serial.print("\tNAltitude: ");
+  Serial.print(norm_altitude, 4); // Afficher l'élévation avec une précision de 4 décimales
+  Serial.println(" degrees");
+}
+
 void setup() {
+
+  // Time init
+  setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
+
+
   // Initialisation des servomoteurs
   servoV.attach(9);
   servoH.attach(10);
 
   updateServoPositions();
+  ComputeGeoPos();
 
   // Initialisation de la réception infrarouge
   irrecv.enableIRIn();
@@ -135,6 +208,7 @@ void loop() {
 
 
     updateServoPositions();
+    ComputeGeoPos();
 
     irrecv.resume(); // Réactiver la réception infrarouge
   }
