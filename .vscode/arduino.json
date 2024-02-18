@@ -1,0 +1,6 @@
+{
+    "board": "arduino:avr:uno",
+    "sketch": "wmirror.ino",
+    "port": "/dev/tty.usbmodem14101",
+    "output": "build"
+}

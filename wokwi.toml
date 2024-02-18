@@ -1,0 +1,4 @@
+[wokwi]
+version=1
+firmware='./build/wmirror.ino.hex'
+elf='./build/wmirror.ino.elf'
