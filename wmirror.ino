@@ -21,6 +21,18 @@ int positionV = POSITION_INITIALE_V;
 int positionH = POSITION_INITIALE_H;
 
 // Codes de télécommande
+
+#define DECODE_NEC          // for arduino rc and wokwi
+
+#ifdef DECODE_NEC
+#define CODE_HAUT 0x0002    // Code de la flèche haut
+#define CODE_BAS 0x0098     // Code de la flèche bas
+#define CODE_GAUCHE 0x00E0  // Code de la flèche gauche
+#define CODE_DROITE 0x0090  // Code de la flèche droite
+#define CODE_HOME 0x00E2    // Code de la touche home (test)
+#define CODE_PLAY 0x00A8    // Code de la touche play
+#define CODE_STOP 0x0068    // Code de la touche play
+#else
 #define CODE_HAUT 0x0058    // Code de la flèche haut
 #define CODE_BAS 0x0059     // Code de la flèche bas
 #define CODE_GAUCHE 0x005A  // Code de la flèche gauche
@@ -28,19 +40,18 @@ int positionH = POSITION_INITIALE_H;
 #define CODE_HOME 0x0054    // Code de la touche home
 #define CODE_PLAY 0x002C    // Code de la touche play
 #define CODE_STOP 0x0031    // Code de la touche play
-
-#define DECODE_NEC          // Includes Apple and Onkyo
+#endif
 
 IRrecv irrecv(RECV_PIN);
 decode_results results;
 
 // 1 si play
-int mode_play = 0;
+int mode_play = 1;
 unsigned long current_millis =0;
 unsigned long last_millis =0;
 
  // soit toutes les 4" pour un degre
-#define PAS_MILLIS (4*1000*60)
+#define PAS_MILLIS (4*60)
 
 void updateServoPositions() {
   // Contraintes pour la positionV
@@ -55,8 +66,7 @@ void updateServoPositions() {
 
   // Afficher la position des servomoteurs sur la sortie série
   Serial.println(mode_play);
-  Serial.println(current_millis);
-  Serial.print("\Position V : ");
+  Serial.println(mode_play);
   Serial.println(positionV);
   Serial.print("Position H : ");
   Serial.println(positionH);
@@ -80,8 +90,8 @@ void setup() {
 }
 
 void loop() {
-  if (irrecv.decode(&results)) {
-    unsigned long code = results.value & 0xFF;
+  if (irrecv.decode()) {
+    unsigned long code = irrecv.decodedIRData.command;
 
     // Afficher le code reçu en hexadécimal sur la sortie série
     Serial.print("Code reçu : 0x");
@@ -131,14 +141,15 @@ void loop() {
 
   if (mode_play) {
     current_millis = millis();
-    if (current_millis - last_millis >= PAS_MILLIS) {
+    if ((current_millis - last_millis)/1000 >= PAS_MILLIS) {
+      Serial.println(current_millis - last_millis);
       positionH++;
       last_millis = current_millis;
       updateServoPositions();
 
     }
   
-  delay(1000);                       // wait for a second
+  delay(100);                       // wait for a 100ms
 
   }
 
