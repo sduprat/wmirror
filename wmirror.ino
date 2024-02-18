@@ -24,7 +24,7 @@ const int RECV_PIN = 7;
 
 // Codes de télécommande
 
-#define DECODE_NEC          // for arduino rc and wokwi
+//#define DECODE_NEC          // for arduino rc and wokwi
 
 #ifdef DECODE_NEC
 #define CODE_HAUT 0x0002    // Code de la flèche haut
@@ -56,8 +56,8 @@ decode_results results;
 float norm_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
 float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
 
-float target_azimuth = 0;
-float target_altitude = 55;
+float target_azimuth = 180;
+float target_altitude = (180 - 55);
 
 float sun_azimuth;
 float sun_altitude;
@@ -69,8 +69,8 @@ int mode_play = 1;
 unsigned long current_millis =0;
 unsigned long last_millis =0;
 
- // soit toutes les 4" pour un degre
-#define PAS_MILLIS (4*60)
+ // update pos every ...
+#define PAS_MILLIS (30)
 
 
 
@@ -130,7 +130,7 @@ void printGeo(){
 
 
 //compute new norm from sun
-void UpdateNorm() {
+void updateNorm() {
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
@@ -141,41 +141,29 @@ void UpdateNorm() {
 
   // update servo pos from norm
   positionH = norm_azimuth - 90;
-  positionV = norm_altitude;
+  positionV = 90 - norm_altitude ;
 
   printGeo();
 }
+
 //compute new target from servos
-void ComputeGeoPos() {
+void updateTarget() {
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
 
   // deduce norm from servo pos
   norm_azimuth  = positionH + 90.0;
-  norm_altitude = (float)positionV;
+  norm_altitude = 90.0 - positionV;
 
   // compute norm from sun and target
   target_azimuth = fmod(2.0 * norm_azimuth - sun_azimuth,360);
   target_altitude = fmod(2.0 * norm_altitude - sun_altitude,360);
+  
   printGeo();
 }
 
 void setup() {
-
-  // Time init
-  setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
-
-
-  // Initialisation des servomoteurs
-  servoV.attach(9);
-  servoH.attach(10);
-
-  updateServoPositions();
-  ComputeGeoPos();
-
-  // Initialisation de la réception infrarouge
-  irrecv.enableIRIn();
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -183,6 +171,19 @@ void setup() {
   
   // Initialisation de la communication série
   Serial.begin(9600);
+
+  // Time init
+  setTime(11, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
+
+  // Initialisation des servomoteurs
+  servoV.attach(9);
+  servoH.attach(10);
+
+  updateNorm();
+  updateServoPositions();
+
+  // Initialisation de la réception infrarouge
+  irrecv.enableIRIn();
 }
 
 void loop() {
@@ -231,7 +232,7 @@ void loop() {
 
 
     updateServoPositions();
-    ComputeGeoPos();
+    updateTarget();
 
     irrecv.resume(); // Réactiver la réception infrarouge
   }
@@ -242,7 +243,7 @@ void loop() {
       Serial.println(current_millis - last_millis);
       positionH++;
       last_millis = current_millis;
-      UpdateNorm();
+      updateNorm();
       updateServoPositions();
 
     }
