@@ -10,7 +10,7 @@
       "top": -231.4,
       "left": 424.2,
       "rotate": 270,
-      "attrs": {}
+      "attrs": {"horn": "double"}
     },
     {
       "type": "wokwi-servo",

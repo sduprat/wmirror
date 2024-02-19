@@ -98,11 +98,10 @@ void updateServoPositions() {
   servoH.write(positionH);
 
   // Afficher la position des servomoteurs sur la sortie série
-  Serial.println(mode_play);
-  Serial.println(mode_play);
+  Serial.print("Servos H: ");
+  Serial.print(positionH);
+  Serial.print(" V: ");
   Serial.println(positionV);
-  Serial.print("Position H : ");
-  Serial.println(positionH);
 }
 
 float angle_normal(float angle1, float angle2) {
@@ -158,6 +157,8 @@ void printGeo(){
 
 //compute new norm from sun
 void updateNorm() {
+  Serial.print("updateNorm");
+
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
@@ -167,7 +168,7 @@ void updateNorm() {
   norm_altitude = angle_normal(sun_altitude, target_altitude);
 
   // update servo pos from norm
-  positionH = norm_azimuth - 90;
+  positionH = 270 - norm_azimuth;
   positionV = 90 - norm_altitude ;
 
   printGeo();
@@ -175,12 +176,13 @@ void updateNorm() {
 
 //compute new target from servos
 void updateTarget() {
+  Serial.print("updateTarget");
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
 
   // deduce norm from servo pos
-  norm_azimuth  = positionH + 90.0;
+  norm_azimuth  = 270.0 - positionH;
   norm_altitude = 90.0 - positionV;
 
   // compute norm from sun and target
@@ -211,7 +213,7 @@ void setup() {
   rtc.begin();
   
   // Uncomment the following line to set the time
-  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   // Time init
   //setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
@@ -267,9 +269,15 @@ void loop() {
         break;
     }
 
-
-    updateServoPositions();
-    updateTarget();
+    switch (code) {
+      case CODE_HAUT:
+      case CODE_BAS:
+      case CODE_GAUCHE:
+      case CODE_DROITE:
+      case CODE_HOME:
+        updateServoPositions();
+        updateTarget();
+    }
 
     irrecv.resume(); // Réactiver la réception infrarouge
   }
