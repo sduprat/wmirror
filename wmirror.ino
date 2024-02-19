@@ -8,7 +8,7 @@
 #include <RTClib.h>
 
 //to comment in real
-//#define WOKWI
+#define WOKWI
 
 // RTC
 #ifdef WOKWI
@@ -213,7 +213,7 @@ void setup() {
   rtc.begin();
   
   // Uncomment the following line to set the time
-  rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+  //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   // Time init
   //setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
