@@ -156,8 +156,8 @@ void cartesian_to_spherical(float* cartesian, float* longitude, float* latitude)
 }
 
 float compute_norm(float sa, float se, float ta, float te, float* na, float* ne) {
-  horz2cart(sa, se, sun_cart);
-  horz2cart(ta, te, target_cart);
+  horz2cart(sa *  M_PI / 180.0, se *  M_PI / 180.0, sun_cart);
+  horz2cart(ta *  M_PI / 180.0, te *  M_PI / 180.0, target_cart);
   calculer_vecteur_normal(sun_cart, target_cart, norm_cart);
   cartesian_to_spherical(norm_cart, na, ne);
 }
@@ -204,7 +204,7 @@ void printGeo(){
 //compute new norm from sun
 void updateNorm() {
   float tmpa, tmpe;
-  Serial.print("updateNorm");
+  Serial.println("updateNorm");
 
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
@@ -216,7 +216,7 @@ void updateNorm() {
 
   compute_norm(sun_azimuth, sun_altitude, target_azimuth, target_altitude, &tmpa, &tmpe);
   Serial.print(tmpa, 4); // Afficher l'azimut avec une précision de 4 décimales
-  Serial.print(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.println(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
 
   // update servo pos from norm
   positionH = 270 - norm_azimuth;
