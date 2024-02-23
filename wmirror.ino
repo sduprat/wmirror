@@ -68,11 +68,15 @@ decode_results results;
 float norm_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
 float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
 
-float target_azimuth = 180;
-float target_altitude = (180 - 55);
+float target_azimuth = 0;
+float target_altitude = 30;
 
 float sun_azimuth;
 float sun_altitude;
+
+float sun_cart[3];
+float norm_cart[3];
+float target_cart[3];
 
 // Time Config
 
@@ -98,10 +102,10 @@ void updateServoPositions() {
   servoH.write(positionH);
 
   // Afficher la position des servomoteurs sur la sortie série
-  Serial.print("Servos H: ");
-  Serial.print(positionH);
-  Serial.print(" V: ");
-  Serial.println(positionV);
+  //Serial.print("Servos H: ");
+  //Serial.print(positionH);
+  //Serial.print(" V: ");
+  //Serial.println(positionV);
 }
 
 float angle_normal(float angle1, float angle2) {
@@ -118,8 +122,49 @@ float angle_normal(float angle1, float angle2) {
   return result;
 }
 
+void calculer_vecteur_normal(float vecteur_incident[3], float vecteur_reflechi[3], float vecteur_normal[3]) {
+  // Calculer le produit vectoriel entre le vecteur incident et le vecteur réfléchi
+  float moy_vectoriel[3] = {(vecteur_incident[0] + vecteur_reflechi[0]) / 2, (vecteur_incident[1] + vecteur_reflechi[1]) / 2, (vecteur_incident[2] + vecteur_reflechi[2]) / 2};
+
+  // Normaliser le vecteur obtenu
+  float vecteur_normal_length = sqrtf(moy_vectoriel[0] * moy_vectoriel[0] + moy_vectoriel[1] * moy_vectoriel[1] + moy_vectoriel[2] * moy_vectoriel[2]);
+  vecteur_normal[0] = moy_vectoriel[0] / vecteur_normal_length;
+  vecteur_normal[1] = moy_vectoriel[1] / vecteur_normal_length;
+  vecteur_normal[2] = moy_vectoriel[2] / vecteur_normal_length;
+}
+
+void horz2cart(float azimuth, float elevation, float cartesian[] ) {
+  // Calculate the cosine and sine of the elevation angle
+  float cosElevation = cos(elevation);
+  float sinElevation = sin(elevation);
+  
+  // Calculate the cosine and sine of the azimuth angle
+  float cosAzimut = cos(azimuth);
+  float sinAzimut = sin(azimuth);
+  
+  // Calculate the Cartesian coordinates
+  cartesian[0] = cosElevation * cosAzimut;
+  cartesian[1] = cosElevation * sinAzimut;
+  cartesian[2] = sinElevation;
+  
+  return ;
+}
+
+void cartesian_to_spherical(float* cartesian, float* longitude, float* latitude) {
+  *longitude = atan2f(cartesian[1], cartesian[0]) * 180.0 / M_PI;
+  *latitude = 90 - acosf(cartesian[2] / sqrtf(cartesian[0]*cartesian[0] + cartesian[1]*cartesian[1] + cartesian[2]*cartesian[2])) * 180.0 / M_PI;
+}
+
+float compute_norm(float sa, float se, float ta, float te, float* na, float* ne) {
+  horz2cart(sa, se, sun_cart);
+  horz2cart(ta, te, target_cart);
+  calculer_vecteur_normal(sun_cart, target_cart, norm_cart);
+  cartesian_to_spherical(norm_cart, na, ne);
+}
+
 void printGeo(){
 
+  /*
   Serial.print(year(), DEC);
   Serial.print('/');
   Serial.print(month(), DEC);
@@ -132,6 +177,7 @@ void printGeo(){
   Serial.print(':');
   Serial.print(second(), DEC);
   Serial.println();
+  */
 
 
   Serial.print("SAzimuth: ");
@@ -157,6 +203,7 @@ void printGeo(){
 
 //compute new norm from sun
 void updateNorm() {
+  float tmpa, tmpe;
   Serial.print("updateNorm");
 
   SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
@@ -166,6 +213,10 @@ void updateNorm() {
   // deduce norm from servo pos
   norm_azimuth  = angle_normal(sun_azimuth, target_azimuth);
   norm_altitude = angle_normal(sun_altitude, target_altitude);
+
+  compute_norm(sun_azimuth, sun_altitude, target_azimuth, target_altitude, &tmpa, &tmpe);
+  Serial.print(tmpa, 4); // Afficher l'azimut avec une précision de 4 décimales
+  Serial.print(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
 
   // update servo pos from norm
   positionH = 270 - norm_azimuth;
