@@ -46,6 +46,9 @@ const int RECV_PIN = 7;
 #define CODE_HOME 0x00E2    // Code de la touche home (test)
 #define CODE_PLAY 0x00A8    // Code de la touche play
 #define CODE_STOP 0x0068    // Code de la touche play
+#define CODE_1 0x0030    // Code de la touche play
+#define CODE_2 0x0018    // Code de la touche play
+#define CODE_3 0x007A    // Code de la touche play
 #else
 #define CODE_HAUT 0x0058    // Code de la flèche haut
 #define CODE_BAS 0x0059     // Code de la flèche bas
@@ -54,6 +57,9 @@ const int RECV_PIN = 7;
 #define CODE_HOME 0x0054    // Code de la touche home
 #define CODE_PLAY 0x002C    // Code de la touche play
 #define CODE_STOP 0x0031    // Code de la touche play
+#define CODE_1 0x0001    // Code de la touche play
+#define CODE_2 0x0002    // Code de la touche play
+#define CODE_3 0x0003    // Code de la touche play
 #endif
 
 IRrecv irrecv(RECV_PIN);
@@ -102,10 +108,10 @@ void updateServoPositions() {
   servoH.write(positionH);
 
   // Afficher la position des servomoteurs sur la sortie série
-  //Serial.print("Servos H: ");
-  //Serial.print(positionH);
-  //Serial.print(" V: ");
-  //Serial.println(positionV);
+  Serial.print("Servos H: ");
+  Serial.print(positionH);
+  Serial.print(" V: ");
+  Serial.println(positionV);
 }
 
 float angle_normal(float angle1, float angle2) {
@@ -270,7 +276,7 @@ void setup() {
 
   // Time init
   //setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
-  setTime(rtc.now().unixtime());
+  setTime(rtc.now().unixtime()-3600);
 
 
   updateNorm();
@@ -309,6 +315,21 @@ void loop() {
         positionV = POSITION_INITIALE_V;
         positionH = POSITION_INITIALE_H;
         break;
+      case CODE_1:
+        // Revenir à la position initiale des servomoteurs
+        target_azimuth = 179;
+        target_altitude = 99;
+        break;
+      case CODE_2:
+        // Revenir à la position initiale des servomoteurs
+        target_azimuth = 0;
+        target_altitude = 47;
+        break;
+      case CODE_3:
+        // Revenir à la position initiale des servomoteurs
+        target_azimuth = sun_azimuth;
+        target_altitude = sun_altitude;
+        break;
       case CODE_PLAY:
         // Faire quelque chose pour le code play
         mode_play = 1;
@@ -328,6 +349,9 @@ void loop() {
       case CODE_GAUCHE:
       case CODE_DROITE:
       case CODE_HOME:
+      case CODE_1:
+      case CODE_2:
+      case CODE_3:
         updateNorm();
         updateServoPositions();
     //    updateTarget();
