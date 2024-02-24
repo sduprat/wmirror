@@ -98,7 +98,7 @@ unsigned long last_millis =0;
 
 void updateServoPositions() {
   // Contraintes pour la positionV
-  positionH = constrain(positionH, -180, 180);
+  positionH = constrain(positionH, -0, 180);
 
   // Contraintes pour la positionH
   positionV = constrain(positionV, 0, 90);
@@ -114,19 +114,6 @@ void updateServoPositions() {
   Serial.println(positionV);
 }
 
-float angle_normal(float angle1, float angle2) {
-
-  float result;
-
-  if ((angle1-angle2)>180)
-    result = ((angle1 + angle2)/2+180);
-    else {
-      if ((angle1-angle2)<-180)
-        result = ((angle1 + angle2)/2-180);
-      else
-        result = (angle1 + angle2)/2;}
-  return result;
-}
 
 void calculer_vecteur_normal(float vecteur_incident[3], float vecteur_reflechi[3], float vecteur_normal[3]) {
   // Calculer le produit vectoriel entre le vecteur incident et le vecteur réfléchi
@@ -218,38 +205,15 @@ void updateNorm() {
   sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
 
-  // deduce norm from servo pos
- // norm_azimuth  = angle_normal(sun_azimuth, target_azimuth);
- // norm_altitude = angle_normal(sun_altitude, target_altitude);
-
   compute_norm(sun_azimuth, sun_altitude, target_azimuth, target_altitude, &norm_azimuth, &norm_altitude);
- // Serial.print(tmpa, 4); // Afficher l'azimut avec une précision de 4 décimales
- // Serial.println(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
 
-  // update servo pos from norm
+  // update servo pos
   positionH = 270 - norm_azimuth;
   positionV = 90 - norm_altitude ;
 
   printGeo();
 }
 
-//compute new target from servos
-void updateTarget() {
-  Serial.print("updateTarget");
-  SunPosition sun(LATITUDE, LONGITUDE, now()); // Créer un objet SunPosition pour la latitude, la longitude et l'heure actuelles
-  sun_azimuth = sun.azimuth(); // Obtenir l'azimut du soleil
-  sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
-
-  // deduce norm from servo pos
-  norm_azimuth  = 270.0 - positionH;
-  norm_altitude = 90.0 - positionV;
-
-  // compute norm from sun and target
-  target_azimuth = fmod(2.0 * norm_azimuth - sun_azimuth,360);
-  target_altitude = fmod(2.0 * norm_altitude - sun_altitude,360);
-  
-  printGeo();
-}
 
 void setup() {
 
@@ -275,7 +239,7 @@ void setup() {
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 
   // Time init
-  //setTime(16, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
+  //setTime(14, 0, 0, 13, 2, 2024); // Définir l'heure et la date actuelles (heure:minute:seconde, jour:mois:année)
   setTime(rtc.now().unixtime()-3600);
 
 
@@ -354,7 +318,6 @@ void loop() {
       case CODE_3:
         updateNorm();
         updateServoPositions();
-    //    updateTarget();
     }
 
     irrecv.resume(); // Réactiver la réception infrarouge
@@ -363,7 +326,7 @@ void loop() {
   if (mode_play) {
     current_millis = millis();
     if ((current_millis - last_millis)/1000 >= PAS_MILLIS) {
-      Serial.println(current_millis - last_millis);
+      //Serial.println(current_millis - last_millis);
       positionH++;
       last_millis = current_millis;
       updateNorm();
