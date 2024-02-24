@@ -8,7 +8,7 @@
 #include <RTClib.h>
 
 //to comment in real
-#define WOKWI
+//#define WOKWI
 
 // RTC
 #ifdef WOKWI
@@ -68,8 +68,8 @@ decode_results results;
 float norm_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
 float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
 
-float target_azimuth = 0;
-float target_altitude = 30;
+float target_azimuth = 30;
+float target_altitude = 45;
 
 float sun_azimuth;
 float sun_altitude;
@@ -160,11 +160,13 @@ float compute_norm(float sa, float se, float ta, float te, float* na, float* ne)
   horz2cart(ta *  M_PI / 180.0, te *  M_PI / 180.0, target_cart);
   calculer_vecteur_normal(sun_cart, target_cart, norm_cart);
   cartesian_to_spherical(norm_cart, na, ne);
+  *na = fmod(*na+360,360);
+  *ne = fmod(*ne+360,360);
 }
 
 void printGeo(){
 
-  /*
+  
   Serial.print(year(), DEC);
   Serial.print('/');
   Serial.print(month(), DEC);
@@ -177,7 +179,7 @@ void printGeo(){
   Serial.print(':');
   Serial.print(second(), DEC);
   Serial.println();
-  */
+  
 
 
   Serial.print("SAzimuth: ");
@@ -211,12 +213,12 @@ void updateNorm() {
   sun_altitude = sun.altitude(); // Obtenir l'élévation du soleil
 
   // deduce norm from servo pos
-  norm_azimuth  = angle_normal(sun_azimuth, target_azimuth);
-  norm_altitude = angle_normal(sun_altitude, target_altitude);
+ // norm_azimuth  = angle_normal(sun_azimuth, target_azimuth);
+ // norm_altitude = angle_normal(sun_altitude, target_altitude);
 
-  compute_norm(sun_azimuth, sun_altitude, target_azimuth, target_altitude, &tmpa, &tmpe);
-  Serial.print(tmpa, 4); // Afficher l'azimut avec une précision de 4 décimales
-  Serial.println(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
+  compute_norm(sun_azimuth, sun_altitude, target_azimuth, target_altitude, &norm_azimuth, &norm_altitude);
+ // Serial.print(tmpa, 4); // Afficher l'azimut avec une précision de 4 décimales
+ // Serial.println(tmpe, 4); // Afficher l'azimut avec une précision de 4 décimales
 
   // update servo pos from norm
   positionH = 270 - norm_azimuth;
@@ -288,19 +290,19 @@ void loop() {
     switch (code) {
       case CODE_HAUT:
         // Modifier la position verticale du servomoteur
-        positionV += 1;
+        target_altitude += 1;
         break;
       case CODE_BAS:
         // Modifier la position verticale du servomoteur
-        positionV -= 1;
+        target_altitude -= 1;
         break;
       case CODE_GAUCHE:
         // Modifier la position horizontale du servomoteur
-        positionH += 1;
+        target_azimuth += 1;
         break;
       case CODE_DROITE:
         // Modifier la position horizontale du servomoteur
-        positionH -= 1;
+        target_azimuth -= 1;
         break;
       case CODE_HOME:
         // Revenir à la position initiale des servomoteurs
@@ -326,8 +328,9 @@ void loop() {
       case CODE_GAUCHE:
       case CODE_DROITE:
       case CODE_HOME:
+        updateNorm();
         updateServoPositions();
-        updateTarget();
+    //    updateTarget();
     }
 
     irrecv.resume(); // Réactiver la réception infrarouge
