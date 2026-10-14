@@ -1,2 +1,30 @@
+# build outputs
 /build/
+**/build/
+**/cmake-build-*/
+
+# editor config
+.vscode/
 .vscode/c_cpp_properties.json
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+
+# CMocka / local test artifacts
+**/*.o
+**/*.obj
+**/*.d
+**/*.so
+**/*.dylib
+**/*.a
+**/*.log
+
+# local install folders that are generated during testing
+/install/
+**/install/
+
+# optional local toolchain cache
+**/.cache/
