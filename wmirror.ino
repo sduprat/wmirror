@@ -31,6 +31,12 @@ Servo servoH;
 // Variables de position des servomoteurs
 int positionV = POSITION_INITIALE_V;
 int positionH = POSITION_INITIALE_H;
+int targetPositionV = POSITION_INITIALE_V;
+int targetPositionH = POSITION_INITIALE_H;
+
+// Lissage du mouvement des servos pour éviter les changements trop brusques
+#define SERVO_STEP_V 2
+#define SERVO_STEP_H 2
 
 // IR Config
 // Pins de réception infrarouge
@@ -88,9 +94,11 @@ float sun_altitude;
 int mode_play = 1;
 unsigned long current_millis =0;
 unsigned long last_millis =0;
+unsigned long last_servo_millis =0;
 
- // update pos every ...
-#define PAS_MILLIS (30)
+// 30s update for sun tracking
+#define SUN_UPDATE_INTERVAL_MS (30000)
+#define SERVO_REFRESH_INTERVAL_MS (30)
 
 // Room target config
 #define ROOM_CEILING_Z_M 2.5
@@ -163,16 +171,25 @@ void setRoomTarget(float x_m, float y_m) {
 }
 
 void updateServoPositions() {
+  targetPositionH = (int)normalize_servo_h(targetPositionH);
+  targetPositionV = (int)normalize_servo_v(targetPositionV);
+
+  int deltaH = targetPositionH - positionH;
+  if (deltaH > SERVO_STEP_H) deltaH = SERVO_STEP_H;
+  if (deltaH < -SERVO_STEP_H) deltaH = -SERVO_STEP_H;
+
+  int deltaV = targetPositionV - positionV;
+  if (deltaV > SERVO_STEP_V) deltaV = SERVO_STEP_V;
+  if (deltaV < -SERVO_STEP_V) deltaV = -SERVO_STEP_V;
+
+  positionH += deltaH;
+  positionV += deltaV;
+
   positionH = (int)normalize_servo_h(positionH);
   positionV = (int)normalize_servo_v(positionV);
 
   servoV.write(positionV);
   servoH.write(positionH);
-
-  Serial.print("Servos H: ");
-  Serial.print(positionH);
-  Serial.print(" V: ");
-  Serial.println(positionV);
 }
 
 void printGeo(){
@@ -229,11 +246,11 @@ void updateNorm() {
   norm_azimuth = (float)computed_azimuth;
   norm_altitude = (float)computed_altitude;
 
-  positionH = (int)(270.0 - norm_azimuth);
-  positionV = (int)(90.0 - norm_altitude);
+  int desiredPositionH = (int)(270.0 - norm_azimuth);
+  int desiredPositionV = (int)(90.0 - norm_altitude);
 
-  positionH = (int)normalize_servo_h(positionH);
-  positionV = (int)normalize_servo_v(positionV);
+  targetPositionH = (int)normalize_servo_h(desiredPositionH);
+  targetPositionV = (int)normalize_servo_v(desiredPositionV);
 
   printGeo();
 }
@@ -292,6 +309,8 @@ void handleSerialCommand(String command) {
   if (upper == "HOME") {
     positionV = POSITION_INITIALE_V;
     positionH = POSITION_INITIALE_H;
+    targetPositionV = POSITION_INITIALE_V;
+    targetPositionH = POSITION_INITIALE_H;
     target_x_m = 0.0f;
     target_y_m = 0.0f;
     syncTargetFromRoomXY();
@@ -517,6 +536,8 @@ void setup() {
 void loop() {
   handleSerialInput();
 
+  current_millis = millis();
+
   if (irrecv.decode()) {
     unsigned long code = irrecv.decodedIRData.command;
 
@@ -539,6 +560,8 @@ void loop() {
       case CODE_HOME:
         positionV = POSITION_INITIALE_V;
         positionH = POSITION_INITIALE_H;
+        targetPositionV = POSITION_INITIALE_V;
+        targetPositionH = POSITION_INITIALE_H;
         break;
       case CODE_1:
         target_azimuth = 179;
@@ -579,14 +602,16 @@ void loop() {
   }
 
   if (mode_play) {
-    current_millis = millis();
-    if ((current_millis - last_millis)/1000 >= PAS_MILLIS) {
-      positionH++;
+    if ((current_millis - last_millis) >= SUN_UPDATE_INTERVAL_MS) {
       last_millis = current_millis;
       updateNorm();
+    }
+
+    if ((current_millis - last_servo_millis) >= SERVO_REFRESH_INTERVAL_MS) {
+      last_servo_millis = current_millis;
       updateServoPositions();
     }
 
-    delay(100);
+    delay(20);
   }
 }
