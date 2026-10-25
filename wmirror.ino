@@ -76,7 +76,7 @@ decode_results results;
 float norm_azimuth = 0.0; // Polaris est située approximativement au pôle nord céleste, son azimut est donc 0 degrés
 float norm_altitude = 90.0 - LATITUDE; // L'élévation de Polaris est égale à 90 degrés moins la latitude de l'observateur
 
-float target_azimuth = 30;
+float target_azimuth = 30;    
 float target_altitude = 45;
 
 float sun_azimuth;
@@ -96,6 +96,45 @@ unsigned long last_millis =0;
 #define ROOM_CEILING_Z_M 2.5
 float target_x_m = 0.0f;
 float target_y_m = 0.0f;
+
+// Room preset points
+#define ROOM_POINT_SALON_X_M (1.5f)
+#define ROOM_POINT_SALON_Y_M (-0.5f)
+#define ROOM_POINT_SALLE_A_MANGER_X_M (3.5f)
+#define ROOM_POINT_SALLE_A_MANGER_Y_M (0.5f)
+#define ROOM_POINT_CUISINE_X_M (6.0f)
+#define ROOM_POINT_CUISINE_Y_M (3.0f)
+
+String lastCommand = "";
+
+void rememberLastCommand(const String &command) {
+  String trimmed = command;
+  trimmed.trim();
+
+  if (trimmed.length() == 0) {
+    return;
+  }
+
+  String upper = trimmed;
+  upper.toUpperCase();
+
+  if (upper == "R" || upper == "?" || upper == "LIST") {
+    return;
+  }
+
+  lastCommand = trimmed;
+}
+
+void redoLastCommand() {
+  if (lastCommand.length() == 0) {
+    Serial.println(F("No command to redo"));
+    return;
+  }
+
+  Serial.print(F("REDO: "));
+  Serial.println(lastCommand);
+  handleSerialCommand(lastCommand);
+}
 
 void syncTargetFromRoomXY() {
   double az_deg = 0.0;
@@ -210,14 +249,21 @@ void printSerialHelp() {
   Serial.println(F("  Y+ : +0.20 m on Y"));
   Serial.println(F("  Y- : -0.20 m on Y"));
   Serial.println(F("  POS x y : set target position in room coordinates"));
+  Serial.println(F("  SALON : preset point (-1.5,-0.5)"));
+  Serial.println(F("  SALLE : preset point (-3.5,0.5)"));
+  Serial.println(F("  CUISINE : preset point (-6.0,3.0)"));
+  Serial.println(F("  LIST : show preset room points"));
   Serial.println(F("  HOME     : reset default servo positions"));
   Serial.println(F("  P        : play"));
   Serial.println(F("  O        : stop"));
   Serial.println(F("  T1       : az=179 alt=99 (continuity test)"));
   Serial.println(F("  T2       : az=0 alt=47"));
   Serial.println(F("  T3       : target = sun"));
+  Serial.println(F("  R        : redo last command"));
   Serial.println(F("  ?        : print current geo values"));
 }
+
+void goToRoomPreset(float x_m, float y_m, const __FlashStringHelper *label);
 
 void applyTargetUpdate() {
   updateNorm();
@@ -233,6 +279,11 @@ void handleSerialCommand(String command) {
   String upper = command;
   upper.toUpperCase();
 
+  if (upper == "R") {
+    redoLastCommand();
+    return;
+  }
+
   if (upper == "?") {
     printGeo();
     return;
@@ -246,6 +297,7 @@ void handleSerialCommand(String command) {
     syncTargetFromRoomXY();
     applyTargetUpdate();
     Serial.println(F("HOME"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -254,6 +306,7 @@ void handleSerialCommand(String command) {
     digitalWrite(LED_BUILTIN, HIGH);
     last_millis = millis();
     Serial.println(F("PLAY"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -261,6 +314,7 @@ void handleSerialCommand(String command) {
     mode_play = 0;
     digitalWrite(LED_BUILTIN, LOW);
     Serial.println(F("STOP"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -271,6 +325,7 @@ void handleSerialCommand(String command) {
     target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("TEST1"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -281,6 +336,7 @@ void handleSerialCommand(String command) {
     target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("T2"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -291,6 +347,7 @@ void handleSerialCommand(String command) {
     target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("TEST3"));
+    rememberLastCommand(command);
     return;
   }
 
@@ -299,6 +356,7 @@ void handleSerialCommand(String command) {
     applyTargetUpdate();
     Serial.print(F("AZ="));
     Serial.println(target_azimuth, 2);
+    rememberLastCommand(command);
     return;
   }
 
@@ -307,6 +365,7 @@ void handleSerialCommand(String command) {
     applyTargetUpdate();
     Serial.print(F("AZ="));
     Serial.println(target_azimuth, 2);
+    rememberLastCommand(command);
     return;
   }
 
@@ -315,6 +374,7 @@ void handleSerialCommand(String command) {
     applyTargetUpdate();
     Serial.print(F("EL="));
     Serial.println(target_altitude, 2);
+    rememberLastCommand(command);
     return;
   }
 
@@ -323,6 +383,7 @@ void handleSerialCommand(String command) {
     applyTargetUpdate();
     Serial.print(F("EL="));
     Serial.println(target_altitude, 2);
+    rememberLastCommand(command);
     return;
   }
 
@@ -331,6 +392,7 @@ void handleSerialCommand(String command) {
     syncTargetFromRoomXY();
     applyTargetUpdate();
     printRoomTarget();
+    rememberLastCommand(command);
     return;
   }
 
@@ -339,6 +401,7 @@ void handleSerialCommand(String command) {
     syncTargetFromRoomXY();
     applyTargetUpdate();
     printRoomTarget();
+    rememberLastCommand(command);
     return;
   }
 
@@ -347,6 +410,7 @@ void handleSerialCommand(String command) {
     syncTargetFromRoomXY();
     applyTargetUpdate();
     printRoomTarget();
+    rememberLastCommand(command);
     return;
   }
 
@@ -355,6 +419,7 @@ void handleSerialCommand(String command) {
     syncTargetFromRoomXY();
     applyTargetUpdate();
     printRoomTarget();
+    rememberLastCommand(command);
     return;
   }
 
@@ -369,13 +434,48 @@ void handleSerialCommand(String command) {
       syncTargetFromRoomXY();
       applyTargetUpdate();
       printRoomTarget();
+      rememberLastCommand(command);
       return;
     }
+  }
+
+  if (upper == "SALON") {
+    goToRoomPreset(ROOM_POINT_SALON_X_M, ROOM_POINT_SALON_Y_M, F("SALON"));
+    rememberLastCommand(command);
+    return;
+  }
+
+  if (upper == "SALLE") {
+    goToRoomPreset(ROOM_POINT_SALLE_A_MANGER_X_M, ROOM_POINT_SALLE_A_MANGER_Y_M, F("SALLE"));
+    rememberLastCommand(command);
+    return;
+  }
+
+  if (upper == "CUISINE") {
+    goToRoomPreset(ROOM_POINT_CUISINE_X_M, ROOM_POINT_CUISINE_Y_M, F("CUISINE"));
+    rememberLastCommand(command);
+    return;
+  }
+
+  if (upper == "LIST") {
+    Serial.println(F("Preset points: SALON (-1.5,-0.5), SALLE (-3.5,0.5), CUISINE (-6.0,3.0)"));
+    return;
   }
 
   Serial.print(F("Unknown command: "));
   Serial.println(command);
   printSerialHelp();
+}
+
+void goToRoomPreset(float x_m, float y_m, const __FlashStringHelper *label) {
+  target_x_m = x_m;
+  target_y_m = y_m;
+  syncTargetFromRoomXY();
+  applyTargetUpdate();
+  Serial.print(F("PRESET "));
+  Serial.print(label);
+  Serial.print(F(" => "));
+  printRoomTarget();
 }
 
 void handleSerialInput() {

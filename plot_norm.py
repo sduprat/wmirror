@@ -377,6 +377,23 @@ def plot_room_square_perimeter(ax, side_m=1.0, step_m=0.20, z_m=2.5, color='gree
     ax.scatter(xs, ys, zs, color=color, s=12, alpha=0.9)
 
 
+PRESET_POINTS = {
+    'SALON': (-1.5, -0.5),
+    'SALLE': (-3.5, 0.5),
+    'CUISINE': (-6.0, 3.0),
+}
+
+
+def plot_room_preset_points(ax):
+    """Trace les points prédéfinis de la pièce sur le plan du plafond."""
+    for label, (x_m, y_m) in PRESET_POINTS.items():
+        x = float(x_m)
+        y = float(y_m)
+        z = 2.5
+        ax.scatter(x, y, z, color='purple', s=80, label=f'{label} ({x_m:.1f},{y_m:.1f})')
+        ax.text(x, y, z + 0.08, label, color='purple', fontsize=9)
+
+
 def plot_room_square_validation(side_m=1.0, step_m=0.20, room_z=2.5):
     """Graphique dédié au carré de validation au-dessus du système, avec la même logique de visualisation que le schéma sphérique."""
     fig = plt.figure(figsize=(8, 8))
@@ -430,6 +447,9 @@ def plot_room_square_validation(side_m=1.0, step_m=0.20, room_z=2.5):
     xg, yg = np.meshgrid(np.linspace(room_x0_vis, room_x1_vis, 4), np.linspace(room_y0_vis, room_y1_vis, 4))
     ax.plot_surface(xg, yg, np.full_like(xg, room_z1), alpha=0.25, color='skyblue', linewidth=0)
     ax.text(room_x0_vis + 0.5, room_y0_vis + 0.5, room_z1 + 0.08, 'plafond', color='navy', fontsize=10)
+
+    # preset points in room coordinates
+    plot_room_preset_points(ax)
 
     system_origin = np.array([0.0, 0.0, 0.0], dtype=float)
     ax.scatter(*system_origin, color='black', s=80, label='système 0,0,0')
