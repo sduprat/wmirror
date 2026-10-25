@@ -21,6 +21,16 @@ void compute_norm_from_angles(double sun_azimuth_deg,
                              double target_altitude_deg,
                              double *normal_azimuth_deg,
                              double *normal_altitude_deg);
+void room_xy_to_az_el(double x_m,
+                     double y_m,
+                     double z_m,
+                     double *azimuth_deg,
+                     double *elevation_deg);
+void room_to_spherical(double x_m,
+                     double y_m,
+                     double z_m,
+                     double *azimuth_deg,
+                     double *elevation_deg);
 
 #ifdef __cplusplus
 }

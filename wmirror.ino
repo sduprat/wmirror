@@ -92,6 +92,37 @@ unsigned long last_millis =0;
  // update pos every ...
 #define PAS_MILLIS (30)
 
+// Room target config
+#define ROOM_CEILING_Z_M 2.5
+float target_x_m = 0.0f;
+float target_y_m = 0.0f;
+
+void syncTargetFromRoomXY() {
+  double az_deg = 0.0;
+  double el_deg = 90.0;
+
+  room_xy_to_az_el((double)target_x_m, (double)target_y_m, ROOM_CEILING_Z_M, &az_deg, &el_deg);
+  target_azimuth = (float)az_deg;
+  target_altitude = (float)el_deg;
+}
+
+void printRoomTarget() {
+  Serial.print(F("ROOM target: X="));
+  Serial.print(target_x_m, 3);
+  Serial.print(F(" m  Y="));
+  Serial.print(target_y_m, 3);
+  Serial.print(F(" m  => AZ="));
+  Serial.print(target_azimuth, 2);
+  Serial.print(F(" deg  EL="));
+  Serial.println(target_altitude, 2);
+}
+
+void setRoomTarget(float x_m, float y_m) {
+  target_x_m = x_m;
+  target_y_m = y_m;
+  syncTargetFromRoomXY();
+}
+
 void updateServoPositions() {
   positionH = (int)normalize_servo_h(positionH);
   positionV = (int)normalize_servo_v(positionV);
@@ -169,18 +200,23 @@ void updateNorm() {
 }
 
 void printSerialHelp() {
-  Serial.println(F("Commands (AZERTY):"));
+  Serial.println(F("Commands (AZERTY / room):"));
   Serial.println(F("  A  : +5 on azimuth"));
   Serial.println(F("  E  : -5 on azimuth"));
   Serial.println(F("  Z  : +4 on altitude"));
   Serial.println(F("  S  : -5 on altitude"));
-  Serial.println(F("  H  : home / reset servo positions"));
-  Serial.println(F("  P  : play"));
-  Serial.println(F("  O  : stop"));
-  Serial.println(F("  T1 : az=179 alt=99 (continuity test)"));
-  Serial.println(F("  T2 : az=0 alt=47"));
-  Serial.println(F("  T3 : target = sun"));
-  Serial.println(F("  ?  : print current geo values"));
+  Serial.println(F("  X+ : +0.20 m on X"));
+  Serial.println(F("  X- : -0.20 m on X"));
+  Serial.println(F("  Y+ : +0.20 m on Y"));
+  Serial.println(F("  Y- : -0.20 m on Y"));
+  Serial.println(F("  POS x y : set target position in room coordinates"));
+  Serial.println(F("  HOME     : reset default servo positions"));
+  Serial.println(F("  P        : play"));
+  Serial.println(F("  O        : stop"));
+  Serial.println(F("  T1       : az=179 alt=99 (continuity test)"));
+  Serial.println(F("  T2       : az=0 alt=47"));
+  Serial.println(F("  T3       : target = sun"));
+  Serial.println(F("  ?        : print current geo values"));
 }
 
 void applyTargetUpdate() {
@@ -202,15 +238,18 @@ void handleSerialCommand(String command) {
     return;
   }
 
-  if (upper == "H") {
+  if (upper == "HOME") {
     positionV = POSITION_INITIALE_V;
     positionH = POSITION_INITIALE_H;
+    target_x_m = 0.0f;
+    target_y_m = 0.0f;
+    syncTargetFromRoomXY();
     applyTargetUpdate();
     Serial.println(F("HOME"));
     return;
   }
 
-  if (upper == "P") {
+  if (upper == "PLAY") {
     mode_play = 1;
     digitalWrite(LED_BUILTIN, HIGH);
     last_millis = millis();
@@ -218,7 +257,7 @@ void handleSerialCommand(String command) {
     return;
   }
 
-  if (upper == "O") {
+  if (upper == "STOP") {
     mode_play = 0;
     digitalWrite(LED_BUILTIN, LOW);
     Serial.println(F("STOP"));
@@ -228,6 +267,8 @@ void handleSerialCommand(String command) {
   if (upper == "T1") {
     target_azimuth = 179.0;
     target_altitude = 99.0;
+    target_x_m = 0.0f;
+    target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("TEST1"));
     return;
@@ -236,6 +277,8 @@ void handleSerialCommand(String command) {
   if (upper == "T2") {
     target_azimuth = 0.0;
     target_altitude = 47.0;
+    target_x_m = 0.0f;
+    target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("T2"));
     return;
@@ -244,6 +287,8 @@ void handleSerialCommand(String command) {
   if (upper == "T3") {
     target_azimuth = sun_azimuth;
     target_altitude = sun_altitude;
+    target_x_m = 0.0f;
+    target_y_m = 0.0f;
     applyTargetUpdate();
     Serial.println(F("TEST3"));
     return;
@@ -279,6 +324,53 @@ void handleSerialCommand(String command) {
     Serial.print(F("EL="));
     Serial.println(target_altitude, 2);
     return;
+  }
+
+  if (upper == "X+") {
+    target_x_m += 0.20f;
+    syncTargetFromRoomXY();
+    applyTargetUpdate();
+    printRoomTarget();
+    return;
+  }
+
+  if (upper == "X-") {
+    target_x_m -= 0.20f;
+    syncTargetFromRoomXY();
+    applyTargetUpdate();
+    printRoomTarget();
+    return;
+  }
+
+  if (upper == "Y+") {
+    target_y_m += 0.20f;
+    syncTargetFromRoomXY();
+    applyTargetUpdate();
+    printRoomTarget();
+    return;
+  }
+
+  if (upper == "Y-") {
+    target_y_m -= 0.20f;
+    syncTargetFromRoomXY();
+    applyTargetUpdate();
+    printRoomTarget();
+    return;
+  }
+
+  if (upper.startsWith("POS ")) {
+    String rest = command.substring(4);
+    int separator = rest.indexOf(' ');
+    if (separator > 0) {
+      String xStr = rest.substring(0, separator);
+      String yStr = rest.substring(separator + 1);
+      target_x_m = xStr.toFloat();
+      target_y_m = yStr.toFloat();
+      syncTargetFromRoomXY();
+      applyTargetUpdate();
+      printRoomTarget();
+      return;
+    }
   }
 
   Serial.print(F("Unknown command: "));

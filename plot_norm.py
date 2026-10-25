@@ -1,5 +1,6 @@
 import ctypes
 import math
+import os
 import subprocess
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 
 ROOT = Path(__file__).resolve().parent
+OUTPUT_DIR = Path(os.environ.get('WMIRROR_OUT_DIR', '/tmp/wmirror_plots'))
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 LIB_PATH = ROOT / 'build' / 'wmirror_logic.so'
 TARGET_AZ = 210.0
 TARGET_EL = 47.0
@@ -245,8 +248,8 @@ def plot_fixed_target_validation(rows):
     ax.legend(loc='upper right', fontsize='small')
 
     plt.tight_layout()
-    fig.savefig(ROOT / 'plot_norm.png', dpi=180)
-    print(f'saved {ROOT / "plot_norm.png"}')
+    fig.savefig(OUTPUT_DIR / 'plot_norm.png', dpi=180)
+    print(f'saved {OUTPUT_DIR / "plot_norm.png"}')
 
 
 def plot_fixed_sun_square_validation(rows, sun_az_deg=15.0, sun_el_deg=15.0):
@@ -289,6 +292,9 @@ def plot_fixed_sun_square_validation(rows, sun_az_deg=15.0, sun_el_deg=15.0):
     xg, yg = np.meshgrid(np.linspace(room_x0, room_x1, 4), np.linspace(room_y0, room_y1, 4))
     ax.plot_surface(xg, yg, np.full_like(xg, room_z1), alpha=0.25, color='skyblue', linewidth=0)
     ax.text(room_x1 * 0.5, room_y1 * 0.5, room_z1 + 0.1, 'plafond', color='navy', fontsize=10)
+
+    # validation square on the ceiling, 1m side with 20cm steps
+    plot_room_square_perimeter(ax, side_m=1.0, step_m=0.20, z_m=room_z1, color='darkgreen', center_x=0.0, center_y=0.0)
 
     # focal point at the requested position near the room's far side
     focal_point = np.array([12.0, 4.0, 0.0], dtype=float)
@@ -339,9 +345,172 @@ def plot_fixed_sun_square_validation(rows, sun_az_deg=15.0, sun_el_deg=15.0):
     ax.legend(loc='upper right', fontsize='small')
 
     plt.tight_layout()
-    fig.savefig(ROOT / 'plot_norm_square_fixed_sun.png', dpi=180)
-    print(f'saved {ROOT / "plot_norm_square_fixed_sun.png"}')
+    fig.savefig(OUTPUT_DIR / 'plot_norm_square_fixed_sun.png', dpi=180)
+    print(f'saved {OUTPUT_DIR / "plot_norm_square_fixed_sun.png"}')
 
+
+def generate_room_square_perimeter(side_m=1.0, step_m=0.20, z_m=2.5, center_x=0.0, center_y=0.0):
+    """Retourne le périmètre d'un carré de côté `side_m`, centré sur `(center_x, center_y)` au plafond."""
+    half = side_m / 2.0
+    x_vals = np.arange(center_x - half, center_x + half + step_m / 2.0, step_m)
+    y_vals = np.arange(center_y - half, center_y + half + step_m / 2.0, step_m)
+
+    points = []
+    for x in x_vals:
+        points.append((x, center_y - half, z_m))
+    for y in y_vals[1:]:
+        points.append((center_x + half, y, z_m))
+    for x in reversed(x_vals[:-1]):
+        points.append((x, center_y + half, z_m))
+    for y in reversed(y_vals[1:-1]):
+        points.append((center_x - half, y, z_m))
+    return points
+
+
+def plot_room_square_perimeter(ax, side_m=1.0, step_m=0.20, z_m=2.5, color='green', center_x=0.0, center_y=0.0):
+    """Trace le périmètre du carré au plafond dans le repère 3D de la pièce."""
+    points = generate_room_square_perimeter(side_m=side_m, step_m=step_m, z_m=z_m, center_x=center_x, center_y=center_y)
+    xs = np.asarray([p[0] for p in points], dtype=float)
+    ys = np.asarray([p[1] for p in points], dtype=float)
+    zs = np.asarray([p[2] for p in points], dtype=float)
+    ax.plot(xs, ys, zs, color=color, linewidth=1.5, alpha=0.9)
+    ax.scatter(xs, ys, zs, color=color, s=12, alpha=0.9)
+
+
+def plot_room_square_validation(side_m=1.0, step_m=0.20, room_z=2.5):
+    """Graphique dédié au carré de validation au-dessus du système, avec la même logique de visualisation que le schéma sphérique."""
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection='3d')
+
+    sun_az_deg = 15.0
+    sun_el_deg = 15.0
+    sun_vec = np.asarray(horz2cart(sun_az_deg, sun_el_deg), dtype=float)
+    sun_vec = 1.8 * sun_vec / np.linalg.norm(sun_vec)
+    ax.quiver(0.0, 0.0, 0.0, sun_vec[0], sun_vec[1], sun_vec[2], color='red', linewidth=2, label='soleil')
+
+    room_x0, room_x1 = -2.0, 0.0
+    room_y0, room_y1 = -0.5, 0.5
+    room_z0, room_z1 = 0.0, 2.5
+
+    display_shift_x = 0.0
+    display_shift_y = 0.0
+
+    room_x0_vis = room_x0 + display_shift_x
+    room_x1_vis = room_x1 + display_shift_x
+    room_y0_vis = room_y0 + display_shift_y
+    room_y1_vis = room_y1 + display_shift_y
+
+    vertices = [
+        (room_x0_vis, room_y0_vis, room_z0),
+        (room_x1_vis, room_y0_vis, room_z0),
+        (room_x1_vis, room_y1_vis, room_z0),
+        (room_x0_vis, room_y1_vis, room_z0),
+        (room_x0_vis, room_y0_vis, room_z1),
+        (room_x1_vis, room_y0_vis, room_z1),
+        (room_x1_vis, room_y1_vis, room_z1),
+        (room_x0_vis, room_y1_vis, room_z1),
+    ]
+    faces = [
+        (0, 1, 2, 3),
+        (4, 5, 6, 7),
+        (0, 1, 5, 4),
+        (1, 2, 6, 5),
+        (2, 3, 7, 6),
+        (3, 0, 4, 7),
+    ]
+    for face in faces:
+        face_pts = np.asarray([vertices[i] for i in face], dtype=float)
+        x = face_pts[:, 0]
+        y = face_pts[:, 1]
+        z = face_pts[:, 2]
+        xs, ys = np.meshgrid(x, y)
+        zs = np.full_like(xs, z[0], dtype=float)
+        ax.plot_surface(xs, ys, zs, alpha=0.08, color='lightgray')
+
+    xg, yg = np.meshgrid(np.linspace(room_x0_vis, room_x1_vis, 4), np.linspace(room_y0_vis, room_y1_vis, 4))
+    ax.plot_surface(xg, yg, np.full_like(xg, room_z1), alpha=0.25, color='skyblue', linewidth=0)
+    ax.text(room_x0_vis + 0.5, room_y0_vis + 0.5, room_z1 + 0.08, 'plafond', color='navy', fontsize=10)
+
+    system_origin = np.array([0.0, 0.0, 0.0], dtype=float)
+    ax.scatter(*system_origin, color='black', s=80, label='système 0,0,0')
+
+    square_points = generate_room_square_perimeter(side_m=side_m, step_m=step_m, z_m=room_z, center_x=0.0, center_y=0.0)
+    for x, y, z in square_points:
+        az, el = room_to_spherical(x, y, z)
+        target_vec = np.asarray(horz2cart(az, el), dtype=float)
+        target_vec = 1.8 * target_vec / np.linalg.norm(target_vec)
+        norm_vec = np.asarray(normal_from_angles(sun_az_deg, sun_el_deg, az, el), dtype=float)
+        norm_vec = 1.5 * norm_vec / np.linalg.norm(norm_vec)
+
+        display_x = x + display_shift_x
+        display_y = y + display_shift_y
+        ax.quiver(0.0, 0.0, 0.0, target_vec[0], target_vec[1], target_vec[2], color='black', linewidth=0.8, alpha=0.45)
+        ax.quiver(0.0, 0.0, 0.0, norm_vec[0], norm_vec[1], norm_vec[2], color='blue', linewidth=0.7, alpha=0.55)
+        ax.plot([0.0, display_x], [0.0, display_y], [0.0, z], color='orange', linewidth=0.8, alpha=0.7)
+        ax.scatter(display_x, display_y, z, color='orange', s=30, alpha=0.95)
+
+    ax.set_xlim(-2.5, 0.8)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_zlim(-0.1, 2.8)
+    ax.set_xlabel('X (m)')
+    ax.set_ylabel('Y (m)')
+    ax.set_zlabel('Z (m)')
+    ax.set_title('Validation 1 m au plafond : carré centré sur l’origine système, système à droite du cube')
+    ax.legend(loc='upper right', fontsize='small')
+
+    plt.tight_layout()
+    fig.savefig(OUTPUT_DIR / 'plot_room_square_validation.png', dpi=180)
+    print(f'saved {OUTPUT_DIR / "plot_room_square_validation.png"}')
+
+
+def room_to_spherical(x_m, y_m, z_m):
+    """Convertit un point de la pièce (x, y, z) en azimuth/élévation depuis l'origine système."""
+    if abs(x_m) <= 1e-9 and abs(y_m) <= 1e-9:
+        return 0.0, 90.0
+
+    az = math.degrees(math.atan2(y_m, x_m))
+    if az < 0.0:
+        az += 360.0
+
+    r_xy = math.hypot(x_m, y_m)
+    el = math.degrees(math.atan2(z_m, r_xy))
+    return az, el
+
+
+def validate_room_square_conversion():
+    """Validation de la conversion pièce -> azimuth/élévation sur un carré de 1 m de côté au plafond."""
+    step = 0.20
+    z_floor = 2.5
+    points = []
+
+    center_x = 1.0
+    center_y = 0.0
+    half = 0.5
+    x_vals = np.arange(center_x - half, center_x + half + step / 2.0, step)
+    y_vals = np.arange(center_y - half, center_y + half + step / 2.0, step)
+
+    for x in x_vals:
+        points.append((x, center_y - half, z_floor))
+    for y in y_vals[1:]:
+        points.append((center_x + half, y, z_floor))
+    for x in reversed(x_vals[:-1]):
+        points.append((x, center_y + half, z_floor))
+    for y in reversed(y_vals[1:-1]):
+        points.append((center_x - half, y, z_floor))
+
+    print('Validation room_xy_to_az_el : carré de 1 m, hauteur 2.5 m, pas 20 cm')
+    print('--------------------------------------------------------------------')
+    print(f"{'x':>6} | {'y':>6} | {'az':>8} | {'el':>8}")
+
+    for x, y, z in points:
+        az, el = room_to_spherical(x - 1.0, y, z)
+        print(f"{x:>5.2f} | {y:>5.2f} | {az:>7.2f} | {el:>7.2f}")
+
+    print('--------------------------------------------------------------------')
+
+
+validate_room_square_conversion()
+plot_room_square_validation(side_m=1.0, step_m=0.20, room_z=2.5)
 
 # Graphique 1 : cible fixe
 plot_fixed_target_validation(rows)

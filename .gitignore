@@ -15,6 +15,7 @@ CTestTestfile.cmake
 
 # CMocka / local test artifacts
 **/*.o
+**/*.png
 **/*.obj
 **/*.d
 **/*.so

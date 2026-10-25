@@ -60,8 +60,9 @@ void cartesian_to_spherical(const double cartesian[3], double *azimuth_deg, doub
     const double y = cartesian[1];
     const double z = cartesian[2];
     const double r = sqrt(x * x + y * y + z * z);
+    const double eps = 1e-12;
 
-    if (r == 0.0) {
+    if (fabs(r) <= eps) {
         *azimuth_deg = 0.0;
         *elevation_deg = 0.0;
         return;
@@ -75,13 +76,14 @@ void cartesian_to_spherical(const double cartesian[3], double *azimuth_deg, doub
 void calculer_vecteur_normal(const double incident[3], const double reflected[3], double normal[3]) {
     double avg[3];
     double length;
+    const double eps = 1e-12;
 
     avg[0] = (incident[0] + reflected[0]) / 2.0;
     avg[1] = (incident[1] + reflected[1]) / 2.0;
     avg[2] = (incident[2] + reflected[2]) / 2.0;
 
     length = sqrt(avg[0] * avg[0] + avg[1] * avg[1] + avg[2] * avg[2]);
-    if (length == 0.0) {
+    if (fabs(length) <= eps) {
         normal[0] = 0.0;
         normal[1] = 0.0;
         normal[2] = 0.0;
@@ -107,4 +109,29 @@ void compute_norm_from_angles(double sun_azimuth_deg,
     horz2cart(target_azimuth_deg, target_altitude_deg, target_cart);
     calculer_vecteur_normal(sun_cart, target_cart, normal_cart);
     cartesian_to_spherical(normal_cart, normal_azimuth_deg, normal_altitude_deg);
+}
+
+void room_xy_to_az_el(double x_m,
+                     double y_m,
+                     double z_m,
+                     double *azimuth_deg,
+                     double *elevation_deg) {
+    double r_xy;
+    double az;
+    double el;
+    const double eps = 1e-9;
+
+    if (fabs(x_m) <= eps && fabs(y_m) <= eps) {
+        *azimuth_deg = 0.0;
+        *elevation_deg = 90.0;
+        return;
+    }
+
+    az = atan2(y_m, x_m);
+    r_xy = hypot(x_m, y_m);
+    el = atan2(z_m, r_xy);
+
+    *azimuth_deg = az * 180.0 / M_PI;
+    *elevation_deg = el * 180.0 / M_PI;
+    *azimuth_deg = normalize_angle_360(*azimuth_deg);
 }
