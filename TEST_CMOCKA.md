@@ -1,162 +1,99 @@
-# Test CMocka pour le projet `wmirror`
+# wmirror — notes de développement et de validation
 
-Ce document explique comment lancer un premier test CMocka sur macOS, sans Homebrew, en gardant tout dans un dossier local du projet.
+Ce document rassemble les informations utiles pour travailler sur le projet `wmirror` : logique de géométrie, tests CMocka, commandes série, et visualisation 3D de la zone atteignable.
 
-## 1) Prérequis
+## 1) Objectif du projet
 
-On a déjà vérifié que :
-- le système est macOS Intel (`x86_64`)
-- Homebrew ne fonctionne pas sur cette machine
-- `cmake` a été installé localement
-- CMocka a été compilé et installé localement
+Le miroir doit suivre le soleil en calculant une normale de réflexion à partir du soleil et d’une cible de pièce. La logique est divisée entre :
 
-Le but est d’avoir un environnement de test portable et reproductible, sans dépendre d’un package manager global.
+- la géométrie et les conversions angle / vecteur dans `wmirror_logic.c` / `wmirror_logic.h`
+- la commande des servos dans `wmirror.ino`
+- les validations de logique dans `tests/cmocka_wmirror/`
+- un outil visuel 3D dans `web3d/`
 
-## 2) Structure recommandée
+Le but est de garantir que la cible calculée reste dans les limites mécaniques des servos, sans mouvements brusques.
 
-À la racine du projet :
+## 2) Points clés de la logique
 
-```text
-wmirror/
-├── install/
-│   ├── cmake-.../
-│   └── cmocka-2.0.2/
-├── tests/
-│   └── cmocka_first/
-├── wmirror.ino
-└── ...
-```
+### 2.1 Normal de réflexion
 
-## 3) Vérifier l’emplacement de CMake
+La normale est calculée à partir :
 
-Si CMake a été installé dans un dossier local :
+- de l’azimut/altitude du soleil
+- de l’azimut/altitude de la cible
 
-```bash
-ls /Users/admin/Tools/cmake-3.30.0-macos-universal/CMake.app/Contents/bin
-```
+Le calcul se fait via la moyenne des vecteurs incident et réfléchi, puis conversion sphérique pour obtenir `norm_azimuth` et `norm_altitude`.
 
-Tu dois voir un binaire `cmake`.
+### 2.2 Conversion vers servo
 
-## 4) Vérifier l’emplacement de CMocka
+La commande des servos est calculée avec :
 
-Le package CMocka installé est à l’emplacement :
+- `H = 270 - norm_azimuth`
+- `V = 90 - norm_altitude`
 
-```bash
-ls /Users/admin/Tools/cmocka-2.0.2/build/install
-```
+Ensuite, on applique des bornes mécaniques :
 
-Tu dois voir au moins :
-- `include/`
-- `lib/`
+- `H` dans `[0, 180]`
+- `V` dans `[0, 90]`
 
-## 5) Construire le projet de test CMocka
+C’est ce point qui explique qu’une cible “valides” en géométrie peut être impossible à atteindre physiquement.
 
-Dans le dossier du test :
+### 2.3 Limites mécaniques
 
-```bash
-cd /Users/maison/WORK/wmirror/tests/cmocka_first
-```
+Le système ne doit pas seulement vérifier un angle théorique, il doit vérifier l’angle réel des servos avant de décider qu’une cible est atteignable.
 
-Ensuite, ajoute le binaire CMake au `PATH` :
+Le mauvais précédent comportement était :
 
-```bash
-export PATH="/Users/admin/Tools/cmake-3.30.0-macos-universal/CMake.app/Contents/bin:$PATH"
-```
+- calculer un angle clamped
+- le considérer comme validé
+- ce qui faisait passer en vert des points réellement saturés à 0° ou 180°
 
-Puis configure le projet :
+La logique correcte est maintenant :
 
-```bash
-cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build
-```
+- calculer l’angle brut
+- vérifier le brut dans les bornes
+- afficher l’angle réel clamped
+- marquer `reachable` selon le brut, pas selon la valeur forcée
 
-Compiler :
+## 3) Boucles de contrôle
 
-```bash
-cmake --build build
-```
+Le firmware a été séparé en deux queues de traitement :
 
-Lancer les tests :
+### 3.1 Boucle lente de suivi du soleil
 
-```bash
-ctest --test-dir build --output-on-failure
-```
+- intervalle : environ 30 s
+- calcule la position du soleil
+- recalcule la normale et la cible de miroir
+- mets à jour la cible des servos
 
-## 6) Exemple de test minimal déjà validé
+### 3.2 Boucle rapide d’asservissement servo
 
-Le projet de test contient un fichier `test_basic.c` avec des tests simples sur :
-- normalisation d’un angle autour de 360°
-- borne de l’altitude
-- borne d’un entier servo
-- vérification d’une valeur finie
+- intervalle : ~30 ms
+- applique le lissage des servos
+- évite les changements trop brusques
+- utilise un pas limité : `SERVO_STEP_H`, `SERVO_STEP_V`
 
-Le fichier `CMakeLists.txt` pointe explicitement vers l’installation locale de CMocka :
+Cela permet d’avoir un suivi stable du soleil sans “saccade” mécanique.
 
-```cmake
-set(CMOCKA_ROOT "/Users/admin/Tools/cmocka-2.0.2/build/install")
-```
+## 4) Commandes série
 
-C’est une solution simple pour un environnement sans package manager global.
+Le système accepte des commandes série en mode débug et réglage manuel.
 
-## 7) Commande unique pour tout lancer
-
-Tu peux lancer en une ligne :
-
-```bash
-export PATH="/Users/admin/Tools/cmake-3.30.0-macos-universal/CMake.app/Contents/bin:$PATH" && \
-cd /Users/maison/WORK/wmirror/tests/cmocka_first && \
-cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build && \
-cmake --build build && \
-ctest --test-dir build --output-on-failure
-```
-
-## 8) Résultat attendu
-
-Le test doit passer avec un message du type :
-
-```text
-100% tests passed, 0 tests failed out of 1
-```
-
-## 9) À quoi sert ce test
-
-Cette première étape permet de valider le framework de test sans sortir le matériel :
-- CMake fonctionne
-- CMocka fonctionne
-- les tests de bornes et de logique pure peuvent être exécutés sur machine
-- on a une base de non-régression avant d’évaluer le comportement sur le vrai système
-
-## 10) Prochaine étape prévue
-
-Ensuite, on créera des tests plus spécifiques à `wmirror` :
-- normalisation des angles azimut
-- bornes de `positionH` et `positionV`
-- cas limite autour de 0° / 360°
-- cas d’altitude proche de 0° ou 90°
-- cas où la cible est au soleil / opposée au soleil
-
-Ces tests permettront de valider la logique sans manipuler le matériel réel.
-
-# Commandes de mise au point série pour `wmirror`
-
-Ce document décrit le mode de réglage du système sans télécommande IR. Il est utilisé pour la mise au point et le débogage en laboratoire.
-
-## Commandes série disponibles
-
-Sur le moniteur série Arduino, tu peux envoyer les commandes suivantes :
+Commandes principales :
 
 - `A` : +5° sur l’azimut
 - `E` : -5° sur l’azimut
 - `Z` : +4° sur l’altitude
 - `S` : -5° sur l’altitude
-- `H` : retour à la position d’origine des servos
-- `P` : active le mode automatique
-- `O` : stoppe le mode automatique
-- `T1` : test de continuité, cible `az=179`, `alt=99`
-- `T2` : cible `az=0`, `alt=47`
-- `T3` : cible égale au soleil courant
-- `?` : affiche les valeurs géographiques et la normale calculée
+- `H` : retour à la position initiale
+- `P` : activation du mode automatique
+- `O` : arrêt du mode automatique
+- `T1` / `T2` / `T3` : points de test
+- `?` : affiche les valeurs géo et la normale
+- `LIST` : affiche la liste des commandes
+- `R` : redo de la dernière commande
 
-## Exemple de séquence de test
+### Exemple
 
 ```text
 A
@@ -165,30 +102,75 @@ Z
 S
 T2
 T3
-T1
 ?
+R
 ```
 
-Ce mode permet de faire des réglages très rapides en AZERTY, sans avoir à utiliser la télécommande.
+## 5) Validation CMocka
 
-## Remarque importante sur `T1`
+Le projet contient un premier banc de test CMocka dans `tests/cmocka_first/` ainsi qu’un banc `cmocka_wmirror/` dédié à la logique du miroir.
 
-`T1` est un test de bord de domaine, pas un réglage de fonctionnement normal. `alt=99` est un cas extrême utilisé pour vérifier la continuité du calcul autour des limites physiques du système. Il ne représente pas un point “réel” du ciel dans le cadre d’un usage nominal.
+### 5.1 Construire le test
 
-## Remarque sur les mesures
+```bash
+cd /Users/maison/WORK/wmirror/tests/cmocka_first
+export PATH="/Users/admin/Tools/cmake-3.30.0-macos-universal/CMake.app/Contents/bin:$PATH"
+cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
 
-Dans les logs série, on observe une évolution continue de la normale quand la cible est déplacée progressivement, ce qui est cohérent avec un calcul stable. Les valeurs ne sautent pas brutalement tant que le point cible reste dans le domaine exploitable.
+### 5.2 Cas couverts
 
-## Utilisation recommandée
+- normalisation des angles sur 360°
+- limites de servo
+- bornes de positions
+- calcul de la normale
+- cas limites autour de 0° / 360°
+- valeurs géométriques stables en bord de domaine
 
-Pour la mise au point du système, la procédure la plus simple est :
+## 6) Visualisation 3D de la zone atteignable
 
-1. démarrer le système
-2. envoyer `?` pour lire la position initiale
-3. utiliser `A`, `E`, `Z`, `S` pour ajuster la cible
-4. valider la normale calculée et les positions des servos
-5. utiliser `T2` ou `T3` pour aller sur des points de référence connus
+Un outil visuel est présent dans `web3d/` pour valider les zones atteignables sans matériel.
 
-## Remarque technique
+### 6.1 Lancer le visualiseur
 
-Le code Arduino garde la logique de calcul dans `wmirror_logic.c` et délègue le pilotage des servos et la commande série dans `wmirror.ino`.
+```bash
+cd /Users/maison/WORK/wmirror/web3d
+python3 -m http.server 8000
+```
+
+Puis ouvrir :
+
+```text
+http://localhost:8000
+```
+
+### 6.2 Ce que l’on voit
+
+- points gris foncé au sol : zone de scan globale
+- points jaunes : case considérée comme atteignable au plafond
+- points rouges : case non atteignable
+- vecteurs de couleur :
+  - bleu = direction du soleil
+  - jaune = cible
+  - vert = normale
+- bouton `Rotation: on/off` pour inspecter la scène sans “tourniquet”
+
+Le visualiseur est utile pour vérifier la cohérence du repère de la pièce et la présence/absence de zones mécaniquement atteignables.
+
+## 7) Fichiers importants
+
+- `wmirror.ino` : firmware principal
+- `wmirror_logic.c` : géométrie
+- `wmirror_logic.h` : API partagée
+- `tests/cmocka_wmirror/test_wmirror_logic.c` : validation logique
+- `web3d/index.html` : interface de debug 3D
+- `web3d/logic.js` : logique JS reproduisant la géométrie
+- `web3d/app.js` : rendu visuel et interaction
+
+## 8) À retenir
+
+Le cœur du projet n’est pas seulement le calcul de la position du soleil, mais surtout la vérification que la cible demandée reste dans les bornes mécaniques et le lissage des déplacements pour conserver un comportement fluide.
+
+La logique de géométrie est stable ; les réglages finaux viennent ensuite du calibrage miroir / servos / pièce réelle.
