@@ -168,10 +168,145 @@ void updateNorm() {
   printGeo();
 }
 
+void printSerialHelp() {
+  Serial.println(F("Commands (AZERTY):"));
+  Serial.println(F("  A  : +5 on azimuth"));
+  Serial.println(F("  E  : -5 on azimuth"));
+  Serial.println(F("  Z  : +4 on altitude"));
+  Serial.println(F("  S  : -5 on altitude"));
+  Serial.println(F("  H  : home / reset servo positions"));
+  Serial.println(F("  P  : play"));
+  Serial.println(F("  O  : stop"));
+  Serial.println(F("  T1 : az=179 alt=99 (continuity test)"));
+  Serial.println(F("  T2 : az=0 alt=47"));
+  Serial.println(F("  T3 : target = sun"));
+  Serial.println(F("  ?  : print current geo values"));
+}
+
+void applyTargetUpdate() {
+  updateNorm();
+  updateServoPositions();
+}
+
+void handleSerialCommand(String command) {
+  command.trim();
+  if (command.length() == 0) {
+    return;
+  }
+
+  String upper = command;
+  upper.toUpperCase();
+
+  if (upper == "?") {
+    printGeo();
+    return;
+  }
+
+  if (upper == "H") {
+    positionV = POSITION_INITIALE_V;
+    positionH = POSITION_INITIALE_H;
+    applyTargetUpdate();
+    Serial.println(F("HOME"));
+    return;
+  }
+
+  if (upper == "P") {
+    mode_play = 1;
+    digitalWrite(LED_BUILTIN, HIGH);
+    last_millis = millis();
+    Serial.println(F("PLAY"));
+    return;
+  }
+
+  if (upper == "O") {
+    mode_play = 0;
+    digitalWrite(LED_BUILTIN, LOW);
+    Serial.println(F("STOP"));
+    return;
+  }
+
+  if (upper == "T1") {
+    target_azimuth = 179.0;
+    target_altitude = 99.0;
+    applyTargetUpdate();
+    Serial.println(F("TEST1"));
+    return;
+  }
+
+  if (upper == "T2") {
+    target_azimuth = 0.0;
+    target_altitude = 47.0;
+    applyTargetUpdate();
+    Serial.println(F("T2"));
+    return;
+  }
+
+  if (upper == "T3") {
+    target_azimuth = sun_azimuth;
+    target_altitude = sun_altitude;
+    applyTargetUpdate();
+    Serial.println(F("TEST3"));
+    return;
+  }
+
+  if (upper == "A") {
+    target_azimuth += 5.0;
+    applyTargetUpdate();
+    Serial.print(F("AZ="));
+    Serial.println(target_azimuth, 2);
+    return;
+  }
+
+  if (upper == "E") {
+    target_azimuth -= 5.0;
+    applyTargetUpdate();
+    Serial.print(F("AZ="));
+    Serial.println(target_azimuth, 2);
+    return;
+  }
+
+  if (upper == "Z") {
+    target_altitude += 4.0;
+    applyTargetUpdate();
+    Serial.print(F("EL="));
+    Serial.println(target_altitude, 2);
+    return;
+  }
+
+  if (upper == "S") {
+    target_altitude -= 5.0;
+    applyTargetUpdate();
+    Serial.print(F("EL="));
+    Serial.println(target_altitude, 2);
+    return;
+  }
+
+  Serial.print(F("Unknown command: "));
+  Serial.println(command);
+  printSerialHelp();
+}
+
+void handleSerialInput() {
+  static String inputBuffer = "";
+
+  while (Serial.available() > 0) {
+    char c = Serial.read();
+    if (c == '\n' || c == '\r') {
+      handleSerialCommand(inputBuffer);
+      inputBuffer = "";
+    } else {
+      inputBuffer += c;
+    }
+  }
+}
+
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 
   Serial.begin(9600);
+  delay(1000);
+  Serial.println(F("wmirror ready"));
+  printSerialHelp();
 
   servoV.attach(9);
   servoH.attach(10);
@@ -188,6 +323,8 @@ void setup() {
 }
 
 void loop() {
+  handleSerialInput();
+
   if (irrecv.decode()) {
     unsigned long code = irrecv.decodedIRData.command;
 
@@ -243,8 +380,7 @@ void loop() {
       case CODE_1:
       case CODE_2:
       case CODE_3:
-        updateNorm();
-        updateServoPositions();
+        applyTargetUpdate();
     }
 
     irrecv.resume();

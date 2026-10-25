@@ -257,7 +257,7 @@ def plot_fixed_sun_square_validation(rows, sun_az_deg=15.0, sun_el_deg=15.0):
     # room box and ceiling
     room_x0, room_x1 = 0.0, 12.0
     room_y0, room_y1 = 0.0, 8.0
-    room_z0, room_z1 = 0.0, 4.0
+    room_z0, room_z1 = 0.0, 2.5
     vertices = [
         (room_x0, room_y0, room_z0),
         (room_x1, room_y0, room_z0),
@@ -331,7 +331,7 @@ def plot_fixed_sun_square_validation(rows, sun_az_deg=15.0, sun_el_deg=15.0):
 
     ax.set_xlim(-3.0, 15.0)
     ax.set_ylim(-2.0, 10.0)
-    ax.set_zlim(-0.2, 5.0)
+    ax.set_zlim(-0.2, 3.2)
     ax.set_xlabel('X (m)')
     ax.set_ylabel('Y (m)')
     ax.set_zlabel('Z (m)')
