@@ -38,12 +38,17 @@ $(BIN_DIR)/test_wmirror_logic: tests/test_wmirror_logic.c wmirror_logic.c wmirro
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) $(IFLAGS) -o $@ tests/test_wmirror_logic.c wmirror_logic.c $(LDFLAGS)
 
+$(BIN_DIR)/test_limits_bounds: tests/test_limits_bounds.c wmirror_logic.c wmirror_logic.h
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) $(IFLAGS) -o $@ tests/test_limits_bounds.c wmirror_logic.c $(LDFLAGS)
+
 test: validate-cmocka
 
-validate-cmocka: $(BIN_DIR)/test_basic $(BIN_DIR)/test_wmirror_logic
+validate-cmocka: $(BIN_DIR)/test_basic $(BIN_DIR)/test_wmirror_logic $(BIN_DIR)/test_limits_bounds
 	@echo "Running tests..."
 	$(BIN_DIR)/test_basic
 	$(BIN_DIR)/test_wmirror_logic
+	$(BIN_DIR)/test_limits_bounds
 	@echo "All CMocka tests PASSED successfully."
 
 validate-plot:
