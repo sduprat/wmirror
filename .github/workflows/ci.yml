@@ -1,0 +1,26 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [ main, master, 'jules-*' ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcmocka-dev gcc make
+
+      - name: Build binaries
+        run: make build
+
+      - name: Run CMocka tests
+        run: make test
