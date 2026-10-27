@@ -8,7 +8,7 @@
 
 #include <cmocka.h>
 
-#include "../../wmirror_logic.h"
+#include "../wmirror_logic.h"
 
 static void test_normalize_around_360(void **state) {
     (void)state;

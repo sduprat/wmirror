@@ -8,7 +8,7 @@ Le miroir doit suivre le soleil en calculant une normale de réflexion à partir
 
 - la géométrie et les conversions angle / vecteur dans `wmirror_logic.c` / `wmirror_logic.h`
 - la commande des servos dans `wmirror.ino`
-- les validations de logique dans `tests/cmocka_wmirror/`
+- les validations de logique dans `tests/`
 - un outil visuel 3D dans `web3d/`
 
 Le but est de garantir que la cible calculée reste dans les limites mécaniques des servos, sans mouvements brusques.
@@ -108,16 +108,20 @@ R
 
 ## 5) Validation CMocka
 
-Le projet contient un premier banc de test CMocka dans `tests/cmocka_first/` ainsi qu’un banc `cmocka_wmirror/` dédié à la logique du miroir.
+Le projet contient des tests CMocka dans le dossier `tests/` (`test_basic.c` et `test_wmirror_logic.c`). Tous les tests sont compilés et lancés simplement via `make` à la racine du projet.
 
-### 5.1 Construire le test
+### 5.1 Construire et exécuter les tests
+
+À la racine du projet :
 
 ```bash
-cd /Users/maison/WORK/wmirror/tests/cmocka_first
-export PATH="/Users/admin/Tools/cmake-3.30.0-macos-universal/CMake.app/Contents/bin:$PATH"
-cmake -DCMAKE_BUILD_TYPE=Debug -S . -B build
-cmake --build build
-ctest --test-dir build --output-on-failure
+make test
+```
+
+Ou pour tout construire et valider :
+
+```bash
+make all
 ```
 
 ### 5.2 Cas couverts
@@ -164,7 +168,8 @@ Le visualiseur est utile pour vérifier la cohérence du repère de la pièce et
 - `wmirror.ino` : firmware principal
 - `wmirror_logic.c` : géométrie
 - `wmirror_logic.h` : API partagée
-- `tests/cmocka_wmirror/test_wmirror_logic.c` : validation logique
+- `tests/test_basic.c` : validation basique des bornes
+- `tests/test_wmirror_logic.c` : validation de la logique miroir
 - `web3d/index.html` : interface de debug 3D
 - `web3d/logic.js` : logique JS reproduisant la géométrie
 - `web3d/app.js` : rendu visuel et interaction
