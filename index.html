@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>wmirror Project Hub</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #121a2b;
+        --panel-2: #1a2438;
+        --line: #2a3d5a;
+        --text: #e8edf8;
+        --muted: #8ea0c7;
+        --blue: #5ab4ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 32px;
+        max-width: 480px;
+        width: 90%;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        text-align: center;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.8rem;
+        color: var(--text);
+      }
+
+      p.subtitle {
+        margin: 0 0 24px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .menu-item {
+        display: block;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px 20px;
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.2s ease-in-out;
+      }
+
+      .menu-item:hover {
+        border-color: var(--blue);
+        background: rgba(90, 180, 255, 0.1);
+        color: var(--blue);
+        transform: translateY(-1px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>wmirror</h1>
+      <p class="subtitle">Select an interactive page or tool below:</p>
+      <nav class="menu">
+        <a class="menu-item" href="./web3d/">wmirror 3D Reachability</a>
+      </nav>
+    </div>
+  </body>
+</html>
