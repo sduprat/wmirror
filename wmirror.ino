@@ -65,9 +65,12 @@ const int RECV_PIN = 7;
 #define CODE_HOME 0x0054    // Code de la touche home
 #define CODE_PLAY 0x002C    // Code de la touche play
 #define CODE_STOP 0x0031    // Code de la touche play
-#define CODE_1 0x0001    // Code de la touche play
-#define CODE_2 0x0002    // Code de la touche play
-#define CODE_3 0x0003    // Code de la touche play
+#define CODE_1 0x0001       // Code de la touche 1
+#define CODE_2 0x0002       // Code de la touche 2
+#define CODE_3 0x0003       // Code de la touche 3
+#define CODE_4 0x0004       // Code de la touche 4 -> SALON
+#define CODE_5 0x0005       // Code de la touche 5 -> SALLE
+#define CODE_6 0x0006       // Code de la touche 6 -> CUISINE
 #endif
 
 IRrecv irrecv(RECV_PIN);
@@ -151,6 +154,21 @@ void syncTargetFromRoomXY() {
   room_xy_to_az_el((double)target_x_m, (double)target_y_m, ROOM_CEILING_Z_M, &az_deg, &el_deg);
   target_azimuth = (float)az_deg;
   target_altitude = (float)el_deg;
+}
+
+void syncRoomTargetFromSpherical() {
+  const double az_rad = target_azimuth * M_PI / 180.0;
+  const double el_rad = target_altitude * M_PI / 180.0;
+
+  if (fabs(tan(el_rad)) < 1e-9) {
+    target_x_m = 0.0f;
+    target_y_m = 0.0f;
+    return;
+  }
+
+  const double r_xy = ROOM_CEILING_Z_M / tan(el_rad);
+  target_x_m = (float)(r_xy * cos(az_rad));
+  target_y_m = (float)(r_xy * sin(az_rad));
 }
 
 void printRoomTarget() {
@@ -546,34 +564,57 @@ void loop() {
 
     switch (code) {
       case CODE_HAUT:
-        target_altitude += 1;
+        syncRoomTargetFromSpherical();
+        target_x_m -= 0.20f;
+        syncTargetFromRoomXY();
         break;
       case CODE_BAS:
-        target_altitude -= 1;
+        syncRoomTargetFromSpherical();
+        target_x_m += 0.20f;
+        syncTargetFromRoomXY();
         break;
       case CODE_GAUCHE:
-        target_azimuth += 1;
+        syncRoomTargetFromSpherical();
+        target_y_m += 0.20f;
+        syncTargetFromRoomXY();
         break;
       case CODE_DROITE:
-        target_azimuth -= 1;
+        syncRoomTargetFromSpherical();
+        target_y_m -= 0.20f;
+        syncTargetFromRoomXY();
         break;
       case CODE_HOME:
         positionV = POSITION_INITIALE_V;
         positionH = POSITION_INITIALE_H;
         targetPositionV = POSITION_INITIALE_V;
         targetPositionH = POSITION_INITIALE_H;
+        target_x_m = 0.0f;
+        target_y_m = 0.0f;
+        syncTargetFromRoomXY();
         break;
       case CODE_1:
-        target_azimuth = 179;
-        target_altitude = 99;
+        target_azimuth = 179.0;
+        target_altitude = 99.0;
+        syncRoomTargetFromSpherical();
         break;
       case CODE_2:
-        target_azimuth = 0;
-        target_altitude = 47;
+        target_azimuth = 0.0;
+        target_altitude = 47.0;
+        syncRoomTargetFromSpherical();
         break;
       case CODE_3:
         target_azimuth = sun_azimuth;
         target_altitude = sun_altitude;
+        syncRoomTargetFromSpherical();
+        break;
+      case CODE_4:
+        goToRoomPreset(ROOM_POINT_SALON_X_M, ROOM_POINT_SALON_Y_M, F("SALON"));
+        break;
+      case CODE_5:
+        goToRoomPreset(ROOM_POINT_SALLE_A_MANGER_X_M, ROOM_POINT_SALLE_A_MANGER_Y_M, F("SALLE"));
+        break;
+      case CODE_6:
+        goToRoomPreset(ROOM_POINT_CUISINE_X_M, ROOM_POINT_CUISINE_Y_M, F("CUISINE"));
         break;
       case CODE_PLAY:
         mode_play = 1;
@@ -595,6 +636,9 @@ void loop() {
       case CODE_1:
       case CODE_2:
       case CODE_3:
+      case CODE_4:
+      case CODE_5:
+      case CODE_6:
         applyTargetUpdate();
     }
 
