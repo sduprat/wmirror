@@ -1,6 +1,6 @@
 # wmirror — Developer & Validation Guide
 
-This document provides developer notes for the `wmirror` project: geometric logic, CMocka unit testing, Python native library binding, serial debugging commands, and the 3D web visualizer.
+This document provides developer notes for the `wmirror` project: geometric logic, CMocka unit testing, Python native library binding, Makefile commands, serial debugging commands, and the 3D web visualizer.
 
 ---
 
@@ -57,30 +57,27 @@ The firmware runs two distinct execution loops in `wmirror.ino`:
 
 ---
 
-## 4. Building & Running Unit Tests (CMocka)
+## 4. Launching Validation Activities via Makefile
 
-Core geometry logic in `wmirror_logic.c` is tested using CMocka unit tests in `tests/`.
+All validation workflows — C unit tests and Python trajectory simulations — are driven directly via the root `Makefile`.
 
-### 4.1 Prerequisites
-On Debian/Ubuntu-based Linux systems:
+| Makefile Command | Description |
+|------------------|-------------|
+| `make test` (or `make validate-cmocka`) | Compiles and executes CMocka C unit tests |
+| `make validate-plot` | Runs Python 3D trajectory & ray validation (`plot_norm.py`) |
+| `make validate-all` | Runs both CMocka unit tests and Python plot validation |
+| `make build` | Compiles `wmirror_logic.c` into native shared library (`build/wmirror_logic.so`) |
+| `make clean` | Removes build directory and generated binary artifacts |
+
+### 4.1 Running CMocka Unit Tests
+Requires `libcmocka-dev` installed (`sudo apt-get install -y libcmocka-dev gcc make`).
+
 ```bash
-sudo apt-get install -y libcmocka-dev gcc make
-```
-
-### 4.2 Building and Running Tests
-At the root of the repository:
-```bash
-# Build and execute unit tests
+# Execute C unit tests
 make test
-
-# Build and validate all targets
-make all
-
-# Clean build artifacts
-make clean
 ```
 
-### 4.3 Covered Test Cases
+Covered test cases:
 - Angle normalization across 360° and negative values
 - Servo angle clamping and boundary checks
 - Reflection normal vector calculation accuracy
@@ -100,9 +97,10 @@ In addition to CMocka C unit tests, the geometry library is validated using Pyth
 4. Python executes full daily solar path trajectories and 3D room perimeter simulations, comparing angular bisector equality (`||angle(sun, norm) - angle(target, norm)|| == 0`).
 5. Matplotlib renders 3D vector plots (`plot_norm.png`, `plot_room_square_validation.png`).
 
-### 5.2 Running the Python Validation
+### 5.2 Launching Plot Validation
 ```bash
-python3 plot_norm.py
+# Run plot simulation directly or via Makefile
+make validate-plot
 ```
 
 Output plots will be saved to `/tmp/wmirror_plots/` (or customized via `WMIRROR_OUT_DIR`).
@@ -137,7 +135,7 @@ Navigate to `http://localhost:8000` in your web browser.
 |------|---------|
 | `wmirror.ino` | Arduino main firmware entry point |
 | `wmirror_logic.c` / `.h` | Geometry and vector calculation library |
-| `Makefile` | Build system for CMocka unit tests |
+| `Makefile` | Root Makefile driving all build and validation targets |
 | `plot_norm.py` | Python script invoking C library via `ctypes` for 3D trajectory validation |
 | `tests/test_basic.c` | Basic boundary test suite |
 | `tests/test_wmirror_logic.c` | Core geometry test suite |
