@@ -7,6 +7,8 @@ BUILD_DIR := $(ROOT)/build
 BIN_DIR := $(BUILD_DIR)/bin
 
 LIB_OUT := $(BUILD_DIR)/wmirror_logic.so
+WASM_OUT := web3d/wmirror_logic.wasm
+CLANG ?= clang
 
 CMOCKA_ROOT ?= /Users/admin/Tools/cmocka-2.0.2/build/install
 IFLAGS := -I$(ROOT)
@@ -23,12 +25,16 @@ CFLAGS ?= -O2 -Wall -Wextra
 
 all: build test
 
-build: $(LIB_OUT)
+build: $(LIB_OUT) $(WASM_OUT)
 
 $(LIB_OUT): wmirror_logic.c wmirror_logic.h
 	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -shared -fPIC $(IFLAGS) -o $@ wmirror_logic.c -lm
 	@echo "Built native logic lib: $(LIB_OUT)"
+
+$(WASM_OUT): wmirror_logic.c wmirror_logic.h web3d/wasm_math.c web3d/wasm_inc/math.h web3d/wasm_inc/string.h
+	$(CLANG) --target=wasm32 -O2 -nostdlib -I. -Iweb3d/wasm_inc -Wl,--no-entry -Wl,--export-all -Wl,--allow-undefined -o $@ wmirror_logic.c web3d/wasm_math.c
+	@echo "Built WASM logic module: $(WASM_OUT)"
 
 $(BIN_DIR)/test_basic: tests/test_basic.c
 	@mkdir -p $(BIN_DIR)

@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcmocka-dev gcc make
+          sudo apt-get install -y libcmocka-dev gcc clang lld make
 
       - name: Build binaries
         run: make build
