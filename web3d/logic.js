@@ -1,101 +1,123 @@
 (function () {
+  const importObject = {
+    env: {
+      sin: Math.sin,
+      cos: Math.cos,
+      atan2: Math.atan2,
+      asin: Math.asin,
+    },
+  };
+
+  let wasmExports = null;
+  let doubleView = null;
+
+  async function loadWasm() {
+    let wasmBytes;
+    if (typeof window !== 'undefined' && typeof fetch !== 'undefined') {
+      const response = await fetch('./wmirror_logic.wasm');
+      wasmBytes = await response.arrayBuffer();
+    } else if (typeof require !== 'undefined') {
+      const fs = require('fs');
+      const path = require('path');
+      wasmBytes = fs.readFileSync(path.join(__dirname, 'wmirror_logic.wasm'));
+    }
+
+    const wasmModule = await WebAssembly.instantiate(wasmBytes, importObject);
+    wasmExports = wasmModule.instance.exports;
+    doubleView = new Float64Array(wasmExports.memory.buffer);
+    return wasmExports;
+  }
+
+  const readyPromise = loadWasm();
+
+  function getDoubleView() {
+    if (doubleView.buffer !== wasmExports.memory.buffer) {
+      doubleView = new Float64Array(wasmExports.memory.buffer);
+    }
+    return doubleView;
+  }
+
   const normalizeAngle360 = function (angle) {
-    let a = angle;
-    while (a >= 360.0) a -= 360.0;
-    while (a < 0.0) a += 360.0;
-    return a;
+    return wasmExports.normalize_angle_360(angle);
   };
 
   const clamp = function (value, minValue, maxValue) {
-    if (value < minValue) return minValue;
-    if (value > maxValue) return maxValue;
-    return value;
+    return wasmExports.clamp_double(value, minValue, maxValue);
   };
 
   const horz2cart = function (azimuthDeg, elevationDeg) {
-    const az = (azimuthDeg * Math.PI) / 180.0;
-    const el = (elevationDeg * Math.PI) / 180.0;
-    const cosEl = Math.cos(el);
+    const view = getDoubleView();
+    wasmExports.horz2cart(azimuthDeg, elevationDeg, 0);
     return {
-      x: cosEl * Math.cos(az),
-      y: cosEl * Math.sin(az),
-      z: Math.sin(el),
+      x: view[0],
+      y: view[1],
+      z: view[2],
     };
   };
 
   const cartesianToSpherical = function (v) {
-    const { x, y, z } = v;
-    const r = Math.sqrt(x * x + y * y + z * z);
-    const eps = 1e-12;
-
-    if (Math.abs(r) <= eps) {
-      return { azimuthDeg: 0.0, elevationDeg: 0.0 };
-    }
-
-    const az = normalizeAngle360((Math.atan2(y, x) * 180.0) / Math.PI);
-    const el = (Math.asin(z / r) * 180.0) / Math.PI;
-
-    return { azimuthDeg: az, elevationDeg: el };
+    const view = getDoubleView();
+    view[0] = v.x;
+    view[1] = v.y;
+    view[2] = v.z;
+    wasmExports.cartesian_to_spherical(0, 24, 32);
+    return {
+      azimuthDeg: view[3],
+      elevationDeg: view[4],
+    };
   };
 
   const calculerVecteurNormal = function (incident, reflected) {
-    const avg = {
-      x: (incident.x + reflected.x) / 2.0,
-      y: (incident.y + reflected.y) / 2.0,
-      z: (incident.z + reflected.z) / 2.0,
-    };
-
-    const length = Math.hypot(avg.x, avg.y, avg.z);
-    const eps = 1e-12;
-
-    if (Math.abs(length) <= eps) {
-      return { x: 0.0, y: 0.0, z: 0.0 };
-    }
-
+    const view = getDoubleView();
+    view[0] = incident.x;
+    view[1] = incident.y;
+    view[2] = incident.z;
+    view[3] = reflected.x;
+    view[4] = reflected.y;
+    view[5] = reflected.z;
+    wasmExports.calculer_vecteur_normal(0, 24, 48);
     return {
-      x: avg.x / length,
-      y: avg.y / length,
-      z: avg.z / length,
+      x: view[6],
+      y: view[7],
+      z: view[8],
     };
   };
 
   const computeNormFromAngles = function (sunAzimuthDeg, sunAltitudeDeg, targetAzimuthDeg, targetAltitudeDeg) {
-    const sun = horz2cart(sunAzimuthDeg, sunAltitudeDeg);
-    const target = horz2cart(targetAzimuthDeg, targetAltitudeDeg);
-    const normal = calculerVecteurNormal(sun, target);
-    return cartesianToSpherical(normal);
+    const view = getDoubleView();
+    wasmExports.compute_norm_from_angles(
+      sunAzimuthDeg,
+      sunAltitudeDeg,
+      targetAzimuthDeg,
+      targetAltitudeDeg,
+      0,
+      8
+    );
+    return {
+      azimuthDeg: view[0],
+      elevationDeg: view[1],
+    };
   };
 
   const roomXYToAzEl = function (x, y, z) {
-    const eps = 1e-9;
-
-    if (Math.abs(x) <= eps && Math.abs(y) <= eps) {
-      return { azimuthDeg: 0.0, elevationDeg: 90.0 };
-    }
-
-    const az = Math.atan2(y, x);
-    const rXY = Math.hypot(x, y);
-    const el = Math.atan2(z, rXY);
-
+    const view = getDoubleView();
+    wasmExports.room_xy_to_az_el(x, y, z, 0, 8);
     return {
-      azimuthDeg: normalizeAngle360((az * 180.0) / Math.PI),
-      elevationDeg: (el * 180.0) / Math.PI,
+      azimuthDeg: view[0],
+      elevationDeg: view[1],
     };
   };
 
   const servoAnglesForNormal = function (normalAzimuthDeg, normalAltitudeDeg) {
     const h = 270.0 - normalAzimuthDeg;
     const v = 90.0 - normalAltitudeDeg;
-    return {
-      h,
-      v,
-    };
+    return { h, v };
   };
 
   const clampServoAngles = function (servo) {
     return {
-      h: clamp(servo.h, 0.0, 180.0),
-      v: clamp(servo.v, 0.0, 90.0),
+      h: wasmExports.normalize_servo_h(servo.h),
+      v: wasmExports.normalize_servo_v(servo.v),
     };
   };
 
@@ -111,7 +133,8 @@
     return { ...actual, reachable, raw };
   };
 
-  window.wmirrorLogic = {
+  const wmirrorLogic = {
+    ready: readyPromise,
     normalizeAngle360,
     clamp,
     horz2cart,
@@ -123,4 +146,11 @@
     clampServoAngles,
     isReachable,
   };
+
+  if (typeof window !== 'undefined') {
+    window.wmirrorLogic = wmirrorLogic;
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = wmirrorLogic;
+  }
 })();

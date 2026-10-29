@@ -1,10 +1,3 @@
-const {
-  computeNormFromAngles,
-  horz2cart,
-  isReachable,
-  roomXYToAzEl,
-} = window.wmirrorLogic;
-
 const canvas = document.querySelector('#scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -122,13 +115,17 @@ const outputEls = {
   v: document.getElementById('outV'),
 };
 
+let isWasmReady = false;
+
 function attachSlider(id, key, formatter = (v) => Number(v).toFixed(1)) {
   const el = document.getElementById(id);
   const val = document.getElementById(`${id}Val`);
   const apply = () => {
     controls[key] = Number(el.value);
     val.textContent = formatter(controls[key]);
-    update();
+    if (isWasmReady) {
+      update();
+    }
   };
   el.addEventListener('input', apply);
   apply();
@@ -145,6 +142,7 @@ attachSlider('servoVMin', 'servoVMin', (v) => Number(v).toFixed(0));
 attachSlider('servoVMax', 'servoVMax', (v) => Number(v).toFixed(0));
 
 function sampleGrid() {
+  const { computeNormFromAngles, isReachable, roomXYToAzEl } = window.wmirrorLogic;
   reachablePoints.length = 0;
   reachableGroup.clear();
   ceilingPoints.length = 0;
@@ -184,6 +182,7 @@ function sampleGrid() {
 }
 
 function updateTargetRepresentation() {
+  const { computeNormFromAngles, horz2cart, isReachable, roomXYToAzEl } = window.wmirrorLogic;
   const target = new THREE.Vector3(controls.targetX, controls.targetZ, controls.targetY);
   targetPoint.position.copy(target);
 
@@ -232,7 +231,6 @@ document.getElementById('scanBtn').addEventListener('click', () => {
 });
 
 resize();
-update();
 
 function updateRotationUI() {
   const btn = document.getElementById('toggleRotateBtn');
@@ -252,5 +250,9 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-updateRotationUI();
-animate();
+window.wmirrorLogic.ready.then(() => {
+  isWasmReady = true;
+  update();
+  updateRotationUI();
+  animate();
+});
