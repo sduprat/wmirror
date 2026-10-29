@@ -156,7 +156,7 @@ Open `http://localhost:8000` in your web browser to view:
 
 ## 🛠️ Developers & Architecture Notes
 
-For deep-dive developer documentation, geometric mathematical models, CMocka unit testing, and firmware loop architectures, please consult [TEST_CMOCKA.md](TEST_CMOCKA.md).
+For deep-dive developer documentation, geometric mathematical models, CMocka unit testing, and firmware loop architectures, please consult [DEV_GUIDE.md](DEV_GUIDE.md).
 
 ---
 
