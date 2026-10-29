@@ -9,7 +9,7 @@ This document provides developer notes for the `wmirror` project: geometric logi
 The goal of `wmirror` is to orient a dual-axis mirror to reflect sunlight toward a target point in a room. The system calculates a mirror normal vector as the angle bisector between the sun direction vector (incident) and the target vector (reflected).
 
 The codebase is structured into clear modules:
-- **`wmirror_logic.c` / `wmirror_logic.h`**: Core C geometry routines, angle normalization, coordinate transformations (spherical $\leftrightarrow$ Cartesian room space), and mirror normal calculation.
+- **`wmirror_logic.c` / `wmirror_logic.h`**: Core C geometry routines, angle normalization, coordinate transformations (spherical <-> Cartesian room space), and mirror normal calculation.
 - **`wmirror.ino`**: Arduino firmware managing real-time loops, RTC time syncing, IR remote decoding, serial commands, and servo hardware outputs.
 - **`tests/`**: Unit tests written in C using the CMocka framework (`test_basic.c`, `test_wmirror_logic.c`, `test_limits_bounds.c`).
 - **`web3d/`**: Browser-based Three.js 3D tool for visually verifying reachable ceiling/room zones without hardware.
@@ -19,25 +19,25 @@ The codebase is structured into clear modules:
 ## 2. Geometric Logic & Servo Mapping
 
 ### 2.1 Mirror Normal Calculation
-The reflection normal $\vec{N}$ is derived from:
-- Sun position: Azimuth $\text{Az}_{\text{sun}}$ and Altitude $\text{Alt}_{\text{sun}}$
-- Room target position: Azimuth $\text{Az}_{\text{target}}$ and Altitude $\text{Alt}_{\text{target}}$
+The reflection normal vector N is derived from:
+- Sun position: Azimuth (Az_sun) and Altitude (Alt_sun)
+- Room target position: Azimuth (Az_target) and Altitude (Alt_target)
 
-The unit vectors for incident sunlight $\vec{V}_{\text{sun}}$ and target beam $\vec{V}_{\text{target}}$ are summed to obtain the bisector vector $\vec{N} = \frac{\vec{V}_{\text{sun}} + \vec{V}_{\text{target}}}{\|\vec{V}_{\text{sun}} + \vec{V}_{\text{target}}\|}$, which is converted back to spherical coordinates (`norm_azimuth`, `norm_altitude`).
+The unit vectors for incident sunlight (V_sun) and target beam (V_target) are summed to obtain the normalized bisector vector N = (V_sun + V_target) / ||V_sun + V_target||, which is converted back to spherical coordinates (`norm_azimuth`, `norm_altitude`).
 
 ### 2.2 Mapping Normal to Servos
 The mechanical servo angles are mapped as follows:
-- **Horizontal Servo (Azimuth / Yaw)**: $H = 270^\circ - \text{norm\_azimuth}$
-- **Vertical Servo (Altitude / Pitch)**: $V = 90^\circ - \text{norm\_altitude}$
+- **Horizontal Servo (Azimuth / Yaw)**: `H = 270° - norm_azimuth`
+- **Vertical Servo (Altitude / Pitch)**: `V = 90° - norm_altitude`
 
 Mechanical Clamping Limits:
-- $H \in [0^\circ, 180^\circ]$
-- $V \in [0^\circ, 90^\circ]$
+- `H` in `[0°, 180°]`
+- `V` in `[0°, 90°]`
 
 ### 2.3 Reachability & Boundary Rules
 When determining if a room target is reachable:
-- Raw un-clamped servo values must be evaluated against physical limits ($[0^\circ, 180^\circ]$ and $[0^\circ, 90^\circ]$).
-- A point is marked **reachable** only if the raw computed servo position falls strictly within mechanical bounds. Clamping a saturated position (e.g. forcing $195^\circ \to 180^\circ$) produces an invalid physical reflection angle and is marked **unreachable**.
+- Raw un-clamped servo values must be evaluated against physical limits ([0°, 180°] and [0°, 90°]).
+- A point is marked **reachable** only if the raw computed servo position falls strictly within mechanical bounds. Clamping a saturated position (e.g. forcing 195° → 180°) produces an invalid physical reflection angle and is marked **unreachable**.
 
 ---
 
@@ -47,7 +47,7 @@ The firmware runs two distinct execution loops in `wmirror.ino`:
 
 1. **Slow Tracking Loop (~30 seconds)**:
    - Queries RTC for current timestamp.
-   - Computes solar position ($\text{Az}_{\text{sun}}, \text{Alt}_{\text{sun}}$) using `SunPosition`.
+   - Computes solar position (Az_sun, Alt_sun) using `SunPosition`.
    - Recalculates mirror normal and desired target servo positions.
 
 2. **Fast Servo Loop (~30 ms)**:
@@ -80,11 +80,11 @@ make clean
 ```
 
 ### 4.3 Covered Test Cases
-- Angle normalization across $360^\circ$ and negative values
+- Angle normalization across 360° and negative values
 - Servo angle clamping and boundary checks
 - Reflection normal vector calculation accuracy
 - Spherical to Cartesian room coordinate conversions
-- Edge cases around $0^\circ / 360^\circ$ discontinuities
+- Edge cases around 0° / 360° discontinuities
 
 ---
 

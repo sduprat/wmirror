@@ -13,7 +13,7 @@ An open-source low-tech system for automatically orienting a dual-axis mirror to
 | Feature | Description |
 |---------|-------------|
 | **Smart Sun Reflection** | Calculates bisector normal angles to redirect solar light to room targets |
-| **Room Targeting & Presets** | Target specific 3D coordinates $(X, Y)$ or jump to saved room presets |
+| **Room Targeting & Presets** | Target specific 3D coordinates (X, Y) or jump to saved room presets |
 | **Dual Control Options** | Infrared (IR) remote control and full Serial ASCII interface |
 | **Smooth Motion** | Gradual servo step interpolation prevents abrupt mirror movements |
 | **3D Web Visualizer** | Interactive web tool to inspect reachability, light paths, and mirror limits |
