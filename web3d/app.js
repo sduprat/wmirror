@@ -108,6 +108,70 @@ const ceilingPoints = [];
 const ceilingGroup = new THREE.Group();
 root.add(ceilingGroup);
 
+const presetTargetsGroup = new THREE.Group();
+root.add(presetTargetsGroup);
+
+const PRESET_ROOM_POINTS = [
+  { name: 'Salon', x: 1.5, y: -0.5 },
+  { name: 'Salle à manger', x: 3.5, y: 0.5 },
+  { name: 'Cuisine', x: 6.0, y: 3.0 },
+];
+
+function createQuadrantCheckerTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(128, 128, 128, 128);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+}
+
+const checkerTexture = createQuadrantCheckerTexture();
+
+const presetTargetMeshes = PRESET_ROOM_POINTS.map((pt) => {
+  const group = new THREE.Group();
+
+  // 30 cm diameter disc (radius = 0.15 m)
+  const discGeom = new THREE.CircleGeometry(0.15, 32);
+  const discMat = new THREE.MeshBasicMaterial({
+    map: checkerTexture,
+    side: THREE.DoubleSide,
+  });
+  const disc = new THREE.Mesh(discGeom, discMat);
+  disc.rotation.x = -Math.PI / 2;
+  group.add(disc);
+
+  // Outer ring border: outer radius slightly larger, e.g. 0.15 to 0.17 m
+  const ringGeom = new THREE.RingGeometry(0.15, 0.175, 32);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x53d68c,
+    side: THREE.DoubleSide,
+  });
+  const ring = new THREE.Mesh(ringGeom, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  // Offset slightly to prevent z-fighting
+  ring.position.y = 0.001;
+  group.add(ring);
+
+  presetTargetsGroup.add(group);
+
+  return {
+    ...pt,
+    group,
+    ringMat,
+  };
+});
+
 const outputEls = {
   az: document.getElementById('outAz'),
   el: document.getElementById('outEl'),
@@ -200,11 +264,28 @@ function sampleGrid() {
           emissive: result.reachable ? 0x4d3a12 : 0x4d1212,
         })
       );
-      ceilingPoint.position.set(x, 3.2, y);
+      ceilingPoint.position.set(x, controls.targetZ, y);
       ceilingGroup.add(ceilingPoint);
       ceilingPoints.push(ceilingPoint);
     }
   }
+}
+
+function updatePresetTargets() {
+  const { computeNormFromAngles, isReachable, roomXYToAzEl } = window.wmirrorLogic;
+  const ceilingZ = controls.targetZ;
+
+  presetTargetMeshes.forEach((target) => {
+    // In Three.js room space: X is target.x, Y is target.z (height), Z is target.y
+    target.group.position.set(target.x, ceilingZ, target.y);
+
+    const azEl = roomXYToAzEl(target.x, target.y, ceilingZ);
+    const normal = computeNormFromAngles(controls.sunAz, controls.sunEl, azEl.azimuthDeg, azEl.elevationDeg);
+    const result = isReachable(normal.azimuthDeg, normal.elevationDeg, controls);
+
+    // Reachable: yellow (0xf7d779), Unreachable: red (0xff6b6b)
+    target.ringMat.color.setHex(result.reachable ? 0xf7d779 : 0xff6b6b);
+  });
 }
 
 function updateTargetRepresentation() {
@@ -241,6 +322,7 @@ function updateTargetRepresentation() {
 
 function update() {
   updateTargetRepresentation();
+  updatePresetTargets();
   sampleGrid();
 }
 

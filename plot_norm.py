@@ -378,9 +378,9 @@ def plot_room_square_perimeter(ax, side_m=1.0, step_m=0.20, z_m=2.5, color='gree
 
 
 PRESET_POINTS = {
-    'SALON': (-1.5, -0.5),
-    'SALLE': (-3.5, 0.5),
-    'CUISINE': (-6.0, 3.0),
+    'SALON': (1.5, -0.5),
+    'SALLE': (3.5, 0.5),
+    'CUISINE': (6.0, 3.0),
 }
 
 

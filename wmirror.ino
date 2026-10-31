@@ -284,9 +284,9 @@ void printSerialHelp() {
   Serial.println(F("  Y+ : +0.20 m on Y"));
   Serial.println(F("  Y- : -0.20 m on Y"));
   Serial.println(F("  POS x y : set target position in room coordinates"));
-  Serial.println(F("  SALON : preset point (-1.5,-0.5)"));
-  Serial.println(F("  SALLE : preset point (-3.5,0.5)"));
-  Serial.println(F("  CUISINE : preset point (-6.0,3.0)"));
+  Serial.println(F("  SALON : preset point (1.5,-0.5)"));
+  Serial.println(F("  SALLE : preset point (3.5,0.5)"));
+  Serial.println(F("  CUISINE : preset point (6.0,3.0)"));
   Serial.println(F("  LIST : show preset room points"));
   Serial.println(F("  HOME     : reset default servo positions"));
   Serial.println(F("  P        : play"));
@@ -495,7 +495,7 @@ void handleSerialCommand(String command) {
   }
 
   if (upper == "LIST") {
-    Serial.println(F("Preset points: SALON (-1.5,-0.5), SALLE (-3.5,0.5), CUISINE (-6.0,3.0)"));
+    Serial.println(F("Preset points: SALON (1.5,-0.5), SALLE (3.5,0.5), CUISINE (6.0,3.0)"));
     return;
   }
 
