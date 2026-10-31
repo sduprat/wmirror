@@ -133,8 +133,75 @@
     return { ...actual, reachable, raw };
   };
 
+  const LAVAUR_LATITUDE = 43.6;
+  const LAVAUR_LONGITUDE = 1.8;
+
+  const computeSunPosition = function (date = new Date(), lat = LAVAUR_LATITUDE, lon = LAVAUR_LONGITUDE) {
+    const timeMs = date.getTime();
+    const jd = timeMs / 86400000.0 + 2440587.5;
+    const dDays = jd - 2451545.0; // Jours depuis J2000.0
+
+    // Anomalie moyenne du soleil
+    const gDeg = 357.529 + 0.98560028 * dDays;
+    const gRad = (gDeg % 360.0) * (Math.PI / 180.0);
+
+    // Longitude moyenne du soleil
+    const qDeg = 280.459 + 0.98564736 * dDays;
+    const qRad = (qDeg % 360.0) * (Math.PI / 180.0);
+
+    // Longitude écliptique apparente
+    const lDeg = qDeg + 1.915 * Math.sin(gRad) + 0.020 * Math.sin(2 * gRad);
+    const lRad = (lDeg % 360.0) * (Math.PI / 180.0);
+
+    // Obliquité de l'écliptique
+    const eDeg = 23.439 - 0.00000036 * dDays;
+    const eRad = eDeg * (Math.PI / 180.0);
+
+    // Déclinaison et ascension droite
+    const sinD = Math.sin(eRad) * Math.sin(lRad);
+    const cosD = Math.cos(Math.asin(sinD));
+    const dRad = Math.asin(sinD);
+    const raRad = Math.atan2(Math.cos(eRad) * Math.sin(lRad), Math.cos(lRad));
+
+    // Temps sidéral moyen de Greenwich (GMST) en degrés
+    const gmstDeg = (280.46061837 + 360.98564736629 * dDays) % 360.0;
+
+    // Temps sidéral local (LMST)
+    const lmstDeg = (gmstDeg + lon) % 360.0;
+    const lmstRad = lmstDeg * (Math.PI / 180.0);
+
+    // Angle horaire (Hour Angle) normalisé dans [-PI, PI]
+    let ha = lmstRad - raRad;
+    ha = ((ha + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+
+    const latRad = lat * (Math.PI / 180.0);
+
+    // Altitude / Élévation
+    let sinAlt = Math.sin(latRad) * Math.sin(dRad) + Math.cos(latRad) * cosD * Math.cos(ha);
+    sinAlt = Math.max(-1.0, Math.min(1.0, sinAlt));
+    const altRad = Math.asin(sinAlt);
+    const elevationDeg = altRad * (180.0 / Math.PI);
+
+    // Azimut (mesuré depuis le Nord, dans le sens horaire vers l'Est : 0° Nord, 90° Est, 180° Sud, 270° Ouest)
+    const yAz = -Math.sin(ha);
+    const xAz = Math.tan(dRad) * Math.cos(latRad) - Math.sin(latRad) * Math.cos(ha);
+    const azRad = Math.atan2(yAz, xAz);
+    let azimuthDeg = (azRad * (180.0 / Math.PI)) % 360.0;
+    if (azimuthDeg < 0) {
+      azimuthDeg += 360.0;
+    }
+
+    return {
+      azimuthDeg,
+      elevationDeg,
+    };
+  };
+
   const wmirrorLogic = {
     ready: readyPromise,
+    LAVAUR_LATITUDE,
+    LAVAUR_LONGITUDE,
+    computeSunPosition,
     normalizeAngle360,
     clamp,
     horz2cart,

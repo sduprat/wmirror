@@ -117,12 +117,38 @@ const outputEls = {
 
 let isWasmReady = false;
 
+// Initialize sun position to current position at Lavaur at current time
+if (window.wmirrorLogic && typeof window.wmirrorLogic.computeSunPosition === 'function') {
+  const currentSun = window.wmirrorLogic.computeSunPosition(new Date());
+  controls.sunAz = Math.round(currentSun.azimuthDeg);
+  controls.sunEl = Math.round(currentSun.elevationDeg);
+}
+
+function updateSunElColor(elVal) {
+  const val = document.getElementById('sunElVal');
+  if (val) {
+    if (elVal < 0) {
+      val.style.color = 'var(--red)';
+      val.title = "Soleil sous l'horizon (nuit)";
+    } else {
+      val.style.color = 'var(--text)';
+      val.title = '';
+    }
+  }
+}
+
 function attachSlider(id, key, formatter = (v) => Number(v).toFixed(1)) {
   const el = document.getElementById(id);
   const val = document.getElementById(`${id}Val`);
+  if (controls[key] !== undefined) {
+    el.value = controls[key];
+  }
   const apply = () => {
     controls[key] = Number(el.value);
     val.textContent = formatter(controls[key]);
+    if (key === 'sunEl') {
+      updateSunElColor(controls[key]);
+    }
     if (isWasmReady) {
       update();
     }
